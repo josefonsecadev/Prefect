@@ -11,6 +11,5 @@
       // "console": "integratedTerminal",
       "envFile": "${workspaceFolder}/.env"
       }
-    }
   ]
 }
