@@ -1,0 +1,21 @@
+[project]
+name = "prefect_pipeline"
+version = "0.1.0"
+description = "Ambiente prefect para desenvolvimento de pipelines"
+authors = [
+    {name = "jose_fonseca", email = "jose.fonseca.dev@gmail.com"}
+]
+requires-python = "=3.14.6"
+dependencies = [
+    "prefect (>=3.7.7,<4.0.0)",
+    "typing-extensions (>=4.16.0,<5.0.0)",
+    "minio (>=7.2.20,<8.0.0)",
+    "duckdb (>=1.5.4,<2.0.0)"
+]
+
+[tool.poetry]
+package-mode = false
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

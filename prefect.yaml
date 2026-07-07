@@ -1,0 +1,16 @@
+name: meu_projeto
+prefect-version: 3.0.0
+
+pull:
+  - prefect.deployments.steps.set_working_directory:
+      directory: /app
+
+deployments:
+  - name: camara_despesas
+    entrypoint: pipelines/camara_deputados/despesas/orquestrador.py:executar_pipeline_despesas
+    work_pool:
+      name: local
+    schedule: null
+    parameters: {year}
+    tags:
+      - camara_deputados
