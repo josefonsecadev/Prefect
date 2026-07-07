@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "camara_deputados_despesas",
+      "type": "debugpy",
+      "request": "launch",
+      // "program": "${workspaceFolder}/pipelines/camara_deputados/despesas/orquestrador.py",
+      "module": "pipelines.camara_deputados.despesas.orquestrador",
+      "cwd": "${workspaceFolder}",
+      // "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env"
+      }
+    }
+  ]
+}
