@@ -9,4 +9,5 @@ class Camara:
     def __init__(self,
                  url_base: str | None = None):
         self.url_base = url_base or "https://dadosabertos.camara.leg.br/api/v2/"
+        self.deputados = self.url_base + "deputados"
         self.url_despesas_ano = "http://www.camara.leg.br/cotas/Ano-{ano}.csv.zip"  

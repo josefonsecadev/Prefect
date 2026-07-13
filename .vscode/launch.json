@@ -10,6 +10,22 @@
       "cwd": "${workspaceFolder}",
       // "console": "integratedTerminal",
       "envFile": "${workspaceFolder}/.env"
+    },
+
+    {
+      "name": "camara_deputados_deputados",
+      "type": "debugpy",
+      "request": "launch",
+      // "program": "${workspaceFolder}/pipelines/camara_deputados/despesas/orquestrador.py",
+      "module": "pipelines.camara_deputados.deputados.orquestrador",
+      "cwd": "${workspaceFolder}",
+      // "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "MINIO_ENDPOINT": "localhost:9000"
       }
+    }
+
+
   ]
 }

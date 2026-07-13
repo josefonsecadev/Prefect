@@ -1,5 +1,5 @@
-from io import BytesIO
-from typing import BinaryIO, Optional
+from io import BytesIO, SEEK_END
+from typing import BinaryIO, Optional, Union
 import duckdb
 from tempfile import NamedTemporaryFile
 import os
@@ -41,6 +41,34 @@ class Pipeline(Conexoes):
      return path
 
 
+  def tamanho_arquivo(self,
+                    arquivo: Union[BinaryIO, BytesIO, bytes]) -> int:
+      """
+      Retorna o tamanho em bytes de um arquivo/stream, 
+      deixando o cursor na posição original (0) ao final.
+
+      Args:
+        arquivo (Union[BinaryIO, BytesIO, bytes]): arquivo a ser consultado
+      Returns:
+        (int): tamanho do arquivo em inteiro
+      """
+      
+      if isinstance(arquivo, bytes):
+          return len(arquivo)
+
+      if hasattr(arquivo, "getvalue"):
+          return len(arquivo.getvalue())
+
+      if hasattr(arquivo, "seek") and hasattr(arquivo, "tell"):
+          pos_atual = arquivo.tell()
+          arquivo.seek(0, SEEK_END)
+          tamanho = arquivo.tell()
+          arquivo.seek(pos_atual)
+          return tamanho
+
+      raise TypeError(f"Tipo de arquivo não suportado: {type(arquivo)}")
+
+
   def _limpa_pasta(self,
                    path: str) -> None:
     """
@@ -66,7 +94,8 @@ class Pipeline(Conexoes):
   def _salva_arquivos(self, 
                       arquivo: BinaryIO,
                       nome_arquivo: str,
-                      subpath: Optional[str] = None) -> None: 
+                      subpath: Optional[str] = None,
+                      limpa_pasta: bool = True) -> None: 
     """
     Salva o arquivo no datalake no caminho definido pelo padrão do pipeline
 
@@ -80,14 +109,51 @@ class Pipeline(Conexoes):
 
       path = f"{self._set_path(subpath)}/{nome_arquivo}"
      
-      self._limpa_pasta(path=path)
+      if limpa_pasta: self._limpa_pasta(path=path)
       
-      minio_client.put_object(
+      try:
+         tamanho = self.tamanho_arquivo(arquivo)
+         minio_client.put_object(
+            bucket_name=self.camada,
+            object_name=path,
+            data=arquivo,
+            length=tamanho
+        )
+      except TypeError:
+         minio_client.put_object(
+            bucket_name=self.camada,
+            object_name=path,
+            data=arquivo,
+            length=-1,
+            part_size=20*1024*1024 # 20mb
+        )
+
+
+  def _read_dataframe(self,
+                      nome_tabela: str,
+                      subpath: Optional[str] = None,
+                      schema: dict[str, str] = None) -> duckdb.DuckDBPyConnection:
+    """
+    Leitura dos arquivos em uma pasta com o schema passado salvo na conexão 
+    do DuckDB
+
+    Args:
+      nome_tabela (str): nome da tabela a ser salva
+      subpath (str): subpath da pasta raiz
+      schema (dict[str, str]): schema a ser aplicado na 
+    
+    Returns:
+      (duckdb.DuckDBPyConnection): conexão duckdb
+     """
+    with self._minio() as minio_client:
+      prefix = self._set_path(subpath)
+      objetos = list(minio_client.list_objects(
           bucket_name=self.camada,
-          object_name=path,
-          data=arquivo,
-          length=arquivo.getbuffer().nbytes
-      )
+          prefix=prefix,
+          recursive=True
+      ))
+
+      
 
 
   def _read_arquivo(self,
@@ -151,7 +217,7 @@ class Pipeline(Conexoes):
          os.remove(tmp_path)
 
 
-    elif isinstance(conteudo, str): #TODO método não implementado, apenas para quando cair no erro
+    elif isinstance(conteudo, str):
         
         self.duckdb_conn.execute(
             f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM read_csv_auto(?)",

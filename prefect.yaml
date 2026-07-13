@@ -14,3 +14,12 @@ deployments:
     parameters: {year}
     tags:
       - camara_deputados
+
+  - name: camara_deputados_deputados
+    entrypoint: pipelines/camara_deputados/deputados/orquestrador.py:executar_pipeline_deputados
+    work_pool:
+      name: local
+    schedule: null
+    parameters: {data_inicio, data_fim}
+    tags:
+      - camara_deputados
