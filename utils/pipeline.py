@@ -145,15 +145,77 @@ class Pipeline(Conexoes):
     Returns:
       (duckdb.DuckDBPyConnection): conexão duckdb
      """
+    prefix = self._set_path(subpath)
     with self._minio() as minio_client:
-      prefix = self._set_path(subpath)
-      objetos = list(minio_client.list_objects(
-          bucket_name=self.camada,
-          prefix=prefix,
-          recursive=True
-      ))
+      objetos = [
+          objeto for objeto in minio_client.list_objects(
+              bucket_name=self.camada,
+              prefix=prefix,
+              recursive=True
+          )
+          if not objeto.is_dir
+      ]
 
-      
+    if not objetos:
+      raise FileNotFoundError(f"Nenhum arquivo encontrado no path '{prefix}'")
+
+    def identificador(valor: str) -> str:
+      return f'"{valor.replace(chr(34), chr(34) * 2)}"'
+
+    def leitor(nome_arquivo: str) -> str:
+      nome = nome_arquivo.lower()
+      if nome.endswith((".parquet", ".parquet.gz")):
+        return "read_parquet(?)"
+      if nome.endswith((".json", ".jsonl", ".ndjson", ".json.gz")):
+        return "read_json_auto(?)"
+      return "read_csv_auto(?)"
+
+    tabelas_temporarias = []
+    try:
+      for indice, objeto in enumerate(objetos):
+        tabela_temporaria = f"_pipeline_arquivo_{indice}"
+        tabelas_temporarias.append(tabela_temporaria)
+        caminho = f"s3://{self.camada}/{objeto.object_name}"
+
+        try:
+          self.duckdb_conn.execute(
+              f"CREATE TEMP TABLE {identificador(tabela_temporaria)} AS "
+              f"SELECT * FROM {leitor(objeto.object_name)}",
+              [caminho]
+          )
+        except Exception as erro:
+          raise ValueError(
+              f"Não foi possível ler o arquivo '{objeto.object_name}': {erro}"
+          ) from erro
+
+        if schema:
+          try:
+            self._apply_schema(tabela_temporaria, schema)
+          except ValueError as erro:
+            raise ValueError(
+                f"Schema inválido no arquivo '{objeto.object_name}': {erro}"
+            ) from erro
+
+      if schema:
+        consulta = " UNION ALL ".join(
+            f"SELECT * FROM {identificador(tabela)}"
+            for tabela in tabelas_temporarias
+        )
+      else:
+        consulta = " UNION ALL BY NAME ".join(
+            f"SELECT * FROM {identificador(tabela)}"
+            for tabela in tabelas_temporarias
+        )
+
+      self.duckdb_conn.execute(
+          f"CREATE OR REPLACE TABLE {identificador(nome_tabela)} AS {consulta}"
+      )
+      return self.duckdb_conn
+    finally:
+      for tabela_temporaria in tabelas_temporarias:
+        self.duckdb_conn.execute(
+            f"DROP TABLE IF EXISTS {identificador(tabela_temporaria)}"
+        )
 
 
   def _read_arquivo(self,
