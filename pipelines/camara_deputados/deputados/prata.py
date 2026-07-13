@@ -1,65 +1,48 @@
 from __future__ import annotations
 
-import zipfile
-from io import BytesIO
-
 from prefect import flow, task
 
 from utils.pipeline import Pipeline
 
-from info import Info
+try:
+    from .info import Info
+except ImportError:  # pragma: no cover
+    from info import Info
 
 
 class PipePrata(Pipeline):
-    """
-    Classe da pipeline de deputados na camada prata,
-
-    Responsável pela compilacao dos dados em um árquivo por ano.
-    """
+    """Consolida os arquivos bronze de deputados em um Parquet por ano."""
 
     def __init__(self):
         super().__init__(
             Info.PROJECT_NAME,
-            Info.PIPELINE_NAME, 
+            Info.PIPELINE_NAME,
             "prata"
         )
 
     @flow(
         name="camara_deputados_prata",
-        description="Lê a camada bronze e transforma em parquet para o ano informado.",
+        description="Lê os JSONs bronze, aplica o schema e salva um Parquet.",
         log_prints=True
     )
-    def execute(self, year: int | None = None):
-        self.log.info("[PRATA] INCIANDO SALVAMENTO EM PARQUET COM SCHEMA")
+    def execute(self, year: int):
+        self.log.info(f"[PRATA] INICIANDO CONSOLIDAÇÃO DOS DEPUTADOS DE {year}")
 
-        despesa_bytes = self._read_bronze()
+        self._consolidar_ano(year)
 
-        self._transform_table("deputados", despesa_bytes)
+        self.log.info(f"[PRATA] FINALIZANDO CONSOLIDAÇÃO DOS DEPUTADOS DE {year}")
 
-        self._save_parquet(
-            "deputados",
-            Info.SCHEMA_PRATA,
-            subpath=str(self.year),
+    @task
+    def _consolidar_ano(self, year: int) -> None:
+        subpath = f"ano={year}"
+        self._read_dataframe(
+            nome_tabela="deputados",
+            subpath=subpath,
+            schema=Info.SCHEMA_PRATA,
+            camada="bronze"
         )
-        
-        self.log.info("[PRATA] FINALIZANDO SALVAMENTO EM PARQUET COM SCHEMA")
-    
-    @task
-    def _read_bronze(self) -> BytesIO:
-        """
-        Faz a leitura da camada bronze da pipeline e retorna o arquivo.
-        """
-        
-        return bronze._read_arquivo(str(self.year))
-
-    @task
-    def _transform_table(self,
-                         tabela: str,
-                         zip_bytes: BytesIO):
-        """
-        Transforma o zip em dataframe duckdb.
-        """
-        with zipfile.ZipFile(zip_bytes) as zf:
-            with zf.open(f"Ano-{str(self.year)}.csv") as csv_file:
-                conteudo = BytesIO(csv_file.read())
-                self.csv_to_duckdb(tabela, conteudo=conteudo)
+        self._save_parquet(
+            tabela="deputados",
+            schema=Info.SCHEMA_PRATA,
+            subpath=subpath
+        )

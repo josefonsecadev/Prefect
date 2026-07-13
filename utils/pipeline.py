@@ -132,7 +132,8 @@ class Pipeline(Conexoes):
   def _read_dataframe(self,
                       nome_tabela: str,
                       subpath: Optional[str] = None,
-                      schema: dict[str, str] = None) -> duckdb.DuckDBPyConnection:
+                      schema: dict[str, str] = None,
+                      camada: Optional[str] = None) -> duckdb.DuckDBPyConnection:
     """
     Leitura dos arquivos em uma pasta com o schema passado salvo na conexão 
     do DuckDB
@@ -146,10 +147,11 @@ class Pipeline(Conexoes):
       (duckdb.DuckDBPyConnection): conexão duckdb
      """
     prefix = self._set_path(subpath)
+    camada_origem = camada or self.camada
     with self._minio() as minio_client:
       objetos = [
           objeto for objeto in minio_client.list_objects(
-              bucket_name=self.camada,
+              bucket_name=camada_origem,
               prefix=prefix,
               recursive=True
           )
@@ -175,7 +177,7 @@ class Pipeline(Conexoes):
       for indice, objeto in enumerate(objetos):
         tabela_temporaria = f"_pipeline_arquivo_{indice}"
         tabelas_temporarias.append(tabela_temporaria)
-        caminho = f"s3://{self.camada}/{objeto.object_name}"
+        caminho = f"s3://{camada_origem}/{objeto.object_name}"
 
         try:
           self.duckdb_conn.execute(
