@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import re
 from typing import Iterator, Optional
 
 import duckdb
 from minio import Minio
 
 try:
-    from .config import Config
+    from .config import Config, ConfigError
 except ImportError:  # pragma: no cover
-    from config import Config
+    from config import Config, ConfigError
 
 class Conexoes(Config):
     """
@@ -19,6 +20,7 @@ class Conexoes(Config):
     def __init__(self):
         super().__init__()
         self.duckdb_conn = self._duckdb()
+        self._iceberg_attached = False
     
     @contextmanager
     def _minio(self) -> Iterator[Minio]:
@@ -72,3 +74,50 @@ class Conexoes(Config):
         con.execute(f"SET s3_use_ssl={'true' if minio_secure else 'false'};")
 
         return con
+
+    @staticmethod
+    def _sql_identifier(value: str) -> str:
+        """Valida identificadores usados em comandos estruturais."""
+
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+            raise ValueError(f"Identificador SQL inválido: {value!r}")
+        return f'"{value}"'
+
+    @staticmethod
+    def _sql_literal(value: str) -> str:
+        return "'" + value.replace("'", "''") + "'"
+
+    def _attach_iceberg_catalog(self) -> str:
+        """Anexa uma vez o catálogo REST usado para leituras e commits Iceberg."""
+
+        if self._iceberg_attached:
+            return self.iceberg_catalog_name
+        if not self.iceberg_catalog_endpoint:
+            raise ConfigError(
+                "Variável de ambiente obrigatória não configurada: "
+                "ICEBERG_CATALOG_ENDPOINT"
+            )
+
+        catalog = self._sql_identifier(self.iceberg_catalog_name)
+        endpoint = self._sql_literal(self.iceberg_catalog_endpoint.rstrip("/"))
+        warehouse = self._sql_literal(self.iceberg_warehouse)
+
+        if self.iceberg_token:
+            token = self._sql_literal(self.iceberg_token)
+            self.duckdb_conn.execute(
+                f"CREATE OR REPLACE TEMP SECRET iceberg_catalog_secret "
+                f"(TYPE iceberg, TOKEN {token})"
+            )
+            authentication = "SECRET iceberg_catalog_secret"
+        else:
+            authentication = (
+                "AUTHORIZATION_TYPE 'none', ACCESS_DELEGATION_MODE 'none'"
+            )
+
+        self.duckdb_conn.execute(
+            f"ATTACH {warehouse} AS {catalog} "
+            f"(TYPE iceberg, ENDPOINT {endpoint}, {authentication}, "
+            f"SUPPORT_NESTED_NAMESPACES true)"
+        )
+        self._iceberg_attached = True
+        return self.iceberg_catalog_name

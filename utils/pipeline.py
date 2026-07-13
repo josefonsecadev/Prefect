@@ -332,37 +332,133 @@ class Pipeline(Conexoes):
     self.duckdb_conn.execute(query)
 
 
-  def _save_parquet(self,
-                    tabela: str,
+  def _save_iceberg(self,
+                    tabela_origem: str,
+                    tabela_destino: str,
                     schema: dict[str, str],
-                    subpath: Optional[str] = None,
-                    partition: Optional[list] = None):
-     
-      """
-      Aplica o schema passado e salva os arquivos em formato .parquet
-      no diretório raiz da camada e da pipeline (ou com subpath se passado)
+                    partition: Optional[list[str]] = None,
+                    replace_by: Optional[dict[str, object]] = None
+                    ) -> dict:
+    """Publica uma tabela DuckDB em Iceberg com commit transacional.
 
-      Se passado partition, faz o partition_by das colunas mantendo-as no 
-      dataframe
+    Salva em ``camada.projeto.tabela``. Se ``replace_by`` for passado,
+    somente a partição lógica indicada é substituída, tornando reprocessamentos
+    idempotentes. O retorno contém os metadados do snapshot mais recente.
+    """
 
-      Args:
-      tabela (str): nome da tabela usada no caminho de salvamento
-      schema (dict[str, str]): dict com nome da coluna e tipo SQL
-      subpath (Optional[str]): subpath adicionado ao fim da camada e pipeline name
-      """
+    self._apply_schema(tabela_origem, schema)
+    catalog_name = self._attach_iceberg_catalog()
 
-      if partition:
-         #TODO criar o partition_by
-         pass
+    catalog = self._sql_identifier(catalog_name)
+    camada_sql = self._sql_identifier(self.camada)
+    projeto_sql = self._sql_identifier(self.project_name)
+    destino_sql = self._sql_identifier(tabela_destino)
+    origem_sql = self._sql_identifier(tabela_origem)
+    tabela_iceberg = f"{catalog}.{camada_sql}.{projeto_sql}.{destino_sql}"
 
-
-      self._apply_schema(
-         tabela,
-         schema
+    partition = partition or []
+    colunas_invalidas = [
+        coluna for coluna in [*partition, *(replace_by or {})]
+        if coluna not in schema
+    ]
+    if colunas_invalidas:
+      raise ValueError(
+          f"Colunas não encontradas no schema: {', '.join(colunas_invalidas)}"
       )
 
-      self.duckdb_conn.execute(f"""
-          COPY {tabela}
-          TO 's3://{self.camada}/{self._set_path(subpath)}/{tabela}.parquet'
-          (FORMAT PARQUET)
-      """)
+    self.duckdb_conn.execute(
+        f"CREATE SCHEMA IF NOT EXISTS {catalog}.{camada_sql}"
+    )
+    self.duckdb_conn.execute(
+        f"CREATE SCHEMA IF NOT EXISTS {catalog}.{camada_sql}.{projeto_sql}"
+    )
+
+    colunas = ", ".join(
+        f"{self._sql_identifier(coluna)} {tipo}"
+        for coluna, tipo in schema.items()
+    )
+    partition_clause = ""
+    if partition:
+      partition_clause = " PARTITIONED BY (" + ", ".join(
+          self._sql_identifier(coluna) for coluna in partition
+      ) + ")"
+
+    self.duckdb_conn.execute(
+        f"CREATE TABLE IF NOT EXISTS {tabela_iceberg} ({colunas})"
+        f"{partition_clause} WITH ('format-version' = '2')"
+    )
+
+    try:
+      self.duckdb_conn.execute("BEGIN TRANSACTION")
+      if replace_by:
+        filtros = " AND ".join(
+            f"{self._sql_identifier(coluna)} = ?" for coluna in replace_by
+        )
+        self.duckdb_conn.execute(
+            f"DELETE FROM {tabela_iceberg} WHERE {filtros}",
+            list(replace_by.values())
+        )
+      self.duckdb_conn.execute(
+          f"INSERT INTO {tabela_iceberg} BY NAME SELECT * FROM {origem_sql}"
+      )
+      self.duckdb_conn.execute("COMMIT")
+    except Exception:
+      self.duckdb_conn.execute("ROLLBACK")
+      raise
+
+    snapshot = self.duckdb_conn.execute(
+        f"SELECT * FROM iceberg_snapshots({tabela_iceberg}) "
+        f"ORDER BY timestamp_ms DESC LIMIT 1"
+    )
+    colunas_snapshot = [descricao[0] for descricao in snapshot.description]
+    valores_snapshot = snapshot.fetchone()
+    return dict(zip(colunas_snapshot, valores_snapshot)) if valores_snapshot else {}
+
+
+  def _iceberg_snapshots(self,
+                         tabela: str,
+                         camada: Optional[str] = None) -> list[dict]:
+    """Lista snapshots disponíveis para auditoria e time travel."""
+
+    catalog_name = self._attach_iceberg_catalog()
+    tabela_iceberg = ".".join((
+        self._sql_identifier(catalog_name),
+        self._sql_identifier(camada or self.camada),
+        self._sql_identifier(self.project_name),
+        self._sql_identifier(tabela)
+    ))
+    resultado = self.duckdb_conn.execute(
+        f"SELECT * FROM iceberg_snapshots({tabela_iceberg}) "
+        f"ORDER BY timestamp_ms DESC"
+    )
+    colunas = [descricao[0] for descricao in resultado.description]
+    return [dict(zip(colunas, linha)) for linha in resultado.fetchall()]
+
+
+  def _read_iceberg(self,
+                    tabela_origem: str,
+                    tabela_destino: str,
+                    camada_origem: str,
+                    snapshot_id: Optional[int] = None
+                    ) -> duckdb.DuckDBPyConnection:
+    """Materializa o estado atual ou um snapshot histórico em tabela DuckDB."""
+
+    catalog_name = self._attach_iceberg_catalog()
+    origem = ".".join((
+        self._sql_identifier(catalog_name),
+        self._sql_identifier(camada_origem),
+        self._sql_identifier(self.project_name),
+        self._sql_identifier(tabela_origem)
+    ))
+    destino = self._sql_identifier(tabela_destino)
+    time_travel = ""
+    if snapshot_id is not None:
+      if snapshot_id < 0:
+        raise ValueError("snapshot_id deve ser um inteiro positivo")
+      time_travel = f" AT (VERSION => {snapshot_id})"
+
+    self.duckdb_conn.execute(
+        f"CREATE OR REPLACE TABLE {destino} AS "
+        f"SELECT * FROM {origem}{time_travel}"
+    )
+    return self.duckdb_conn

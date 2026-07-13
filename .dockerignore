@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.prefect
+.vscode
+logs
+*.log
+PLANO_MELHORIA_ARQUITETURA.md

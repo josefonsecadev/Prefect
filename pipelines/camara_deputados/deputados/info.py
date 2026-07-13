@@ -5,7 +5,7 @@ class Info:
   PROJECT_NAME = "camara_deputados"
   PIPELINE_NAME = "deputados"
 
-  SCHEMA_PRATA = {
+  SCHEMA_BRONZE = {
     "id": "BIGINT",
     "uri": "VARCHAR",
     "nome": "VARCHAR",
@@ -15,4 +15,9 @@ class Info:
     "idLegislatura": "BIGINT",
     "urlFoto": "VARCHAR",
     "email": "VARCHAR"
+  }
+
+  SCHEMA_PRATA = {
+    **SCHEMA_BRONZE,
+    "ano_referencia": "INTEGER"
   }

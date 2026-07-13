@@ -31,8 +31,16 @@ services:
     depends_on:
       prefect-server:
         condition: service_healthy
+      lakekeeper-bootstrap:
+        condition: service_completed_successfully
     environment:
       PREFECT_API_URL: "http://prefect-server:${PREFECT_PORT}/api"
+      MINIO_ENDPOINT: "minio:${PORT_API}"
+      MINIO_LOGIN: ${MINIO_LOGIN}
+      MINIO_PASSWORD: ${MINIO_PASSWORD}
+      ICEBERG_CATALOG_ENDPOINT: "http://lakekeeper:8181/catalog"
+      ICEBERG_WAREHOUSE: ${ICEBERG_WAREHOUSE:-prefect}
+      ICEBERG_CATALOG_NAME: ${ICEBERG_CATALOG_NAME:-lakehouse}
     entrypoint: >
       sh -c "
       prefect work-pool create local --type process --overwrite &&
@@ -61,6 +69,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - prefect-net
 
   createbuckets:
     image: minio/mc:latest
@@ -73,10 +83,92 @@ services:
       mc alias set local http://minio:${PORT_API} ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
       mc mb --ignore-existing local/bronze &&
       mc mb --ignore-existing local/prata &&
-      mc mb --ignore-existing local/ouro
+      mc mb --ignore-existing local/ouro &&
+      mc mb --ignore-existing local/iceberg
       "
+    networks:
+      - prefect-net
+
+  lakekeeper-db:
+    image: postgres:16.9-alpine
+    environment:
+      POSTGRES_DB: lakekeeper
+      POSTGRES_USER: lakekeeper
+      POSTGRES_PASSWORD: ${LAKEKEEPER_DB_PASSWORD}
+    volumes:
+      - lakekeeper-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lakekeeper -d lakekeeper"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - prefect-net
+
+  lakekeeper-migrate:
+    image: quay.io/lakekeeper/catalog:v0.12.1
+    command: ["migrate"]
+    environment:
+      LAKEKEEPER__PG_ENCRYPTION_KEY: ${LAKEKEEPER_ENCRYPTION_KEY}
+      LAKEKEEPER__PG_DATABASE_URL_READ: postgresql://lakekeeper:${LAKEKEEPER_DB_PASSWORD}@lakekeeper-db:5432/lakekeeper
+      LAKEKEEPER__PG_DATABASE_URL_WRITE: postgresql://lakekeeper:${LAKEKEEPER_DB_PASSWORD}@lakekeeper-db:5432/lakekeeper
+    depends_on:
+      lakekeeper-db:
+        condition: service_healthy
+    networks:
+      - prefect-net
+
+  lakekeeper:
+    image: quay.io/lakekeeper/catalog:v0.12.1
+    command: ["serve"]
+    ports:
+      - "${LAKEKEEPER_PORT:-8181}:8181"
+    environment:
+      LAKEKEEPER__PG_ENCRYPTION_KEY: ${LAKEKEEPER_ENCRYPTION_KEY}
+      LAKEKEEPER__PG_DATABASE_URL_READ: postgresql://lakekeeper:${LAKEKEEPER_DB_PASSWORD}@lakekeeper-db:5432/lakekeeper
+      LAKEKEEPER__PG_DATABASE_URL_WRITE: postgresql://lakekeeper:${LAKEKEEPER_DB_PASSWORD}@lakekeeper-db:5432/lakekeeper
+    depends_on:
+      lakekeeper-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/home/nonroot/lakekeeper", "healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - prefect-net
+
+  lakekeeper-bootstrap:
+    image: curlimages/curl:8.12.1
+    environment:
+      ICEBERG_WAREHOUSE: ${ICEBERG_WAREHOUSE:-prefect}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      PORT_API: ${PORT_API}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        bootstrap_status=$$(curl -sS -o /dev/null -w '%{http_code}' \
+          -X POST http://lakekeeper:8181/management/v1/bootstrap \
+          -H 'Content-Type: application/json' \
+          --data '{"accept-terms-of-use":true}')
+        case "$$bootstrap_status" in 2*|409) ;; *) exit 1 ;; esac
+        warehouse_status=$$(curl -sS -o /dev/null -w '%{http_code}' \
+          -X POST http://lakekeeper:8181/management/v1/warehouse \
+          -H 'Content-Type: application/json' \
+          --data "{\"warehouse-name\":\"$${ICEBERG_WAREHOUSE}\",\"project-id\":\"00000000-0000-0000-0000-000000000000\",\"storage-profile\":{\"type\":\"s3\",\"bucket\":\"iceberg\",\"key-prefix\":\"warehouse\",\"endpoint\":\"http://minio:$${PORT_API}\",\"region\":\"us-east-1\",\"path-style-access\":true,\"flavor\":\"minio\",\"sts-enabled\":false},\"storage-credential\":{\"type\":\"s3\",\"credential-type\":\"access-key\",\"aws-access-key-id\":\"$${MINIO_ROOT_USER}\",\"aws-secret-access-key\":\"$${MINIO_ROOT_PASSWORD}\"}}")
+        case "$$warehouse_status" in 2*|409) ;; *) exit 1 ;; esac
+    depends_on:
+      lakekeeper:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+    networks:
+      - prefect-net
 volumes:
   prefect-data:
+  lakekeeper-db-data:
 
 networks:
   prefect-net:

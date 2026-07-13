@@ -19,7 +19,7 @@ class PipePrata(Pipeline):
     """
     Classe da pipeline de despesas na camada prata,
 
-    Responsável pela descompactação do arquivo e salva-lo em formato parquet no datalake.
+    Responsável pela descompactação e publicação em uma tabela Iceberg.
     """
 
     def __init__(self):
@@ -28,43 +28,47 @@ class PipePrata(Pipeline):
             Info.PIPELINE_NAME, 
             "prata"
         )
-        self.year = resolve_year(resolve_year())
 
     @flow(
         name="camara_despesas_prata",
-        description="Lê a camada bronze e transforma em parquet para o ano informado.",
+        description="Lê a camada bronze e publica um snapshot Iceberg.",
         log_prints=True
     )
     def execute(self, year: int | None = None):
-        self.log.info("[PRATA] INCIANDO SALVAMENTO EM PARQUET COM SCHEMA")
+        resolved_year = resolve_year(year)
+        self.log.info(f"[PRATA] INICIANDO PUBLICAÇÃO ICEBERG DE {resolved_year}")
 
-        despesa_bytes = self._read_bronze()
+        despesa_bytes = self._read_bronze(resolved_year)
 
-        self._transform_table("despesas", despesa_bytes)
+        self._transform_table("despesas", despesa_bytes, resolved_year)
 
-        self._save_parquet(
-            "despesas",
-            Info.SCHEMA_PRATA,
-            subpath=str(self.year),
+        snapshot = self._save_iceberg(
+            tabela_origem="despesas",
+            tabela_destino="despesas",
+            schema=Info.SCHEMA_PRATA,
+            partition=["numAno"],
+            replace_by={"numAno": str(resolved_year)}
         )
-        
-        self.log.info("[PRATA] FINALIZANDO SALVAMENTO EM PARQUET COM SCHEMA")
+
+        self.log.info(f"[PRATA] SNAPSHOT ICEBERG PUBLICADO: {snapshot}")
+
     @task
-    def _read_bronze(self) -> BytesIO:
+    def _read_bronze(self, year: int) -> BytesIO:
         """
         Faz a leitura da camada bronze da pipeline e retorna o arquivo.
         """
         bronze = PipeBronze()
-        return bronze._read_arquivo(str(self.year))
+        return bronze._read_arquivo(str(year))
 
     @task
     def _transform_table(self,
                          tabela: str,
-                         zip_bytes: BytesIO):
+                         zip_bytes: BytesIO,
+                         year: int):
         """
         Transforma o zip em dataframe duckdb.
         """
         with zipfile.ZipFile(zip_bytes) as zf:
-            with zf.open(f"Ano-{str(self.year)}.csv") as csv_file:
+            with zf.open(f"Ano-{year}.csv") as csv_file:
                 conteudo = BytesIO(csv_file.read())
                 self.csv_to_duckdb(tabela, conteudo=conteudo)

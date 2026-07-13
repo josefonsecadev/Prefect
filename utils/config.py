@@ -17,6 +17,10 @@ class Config:
     self.minio_endpoint = self._get_required_env('MINIO_ENDPOINT')
     self.minio_login = self._get_required_env('MINIO_LOGIN')
     self.minio_password = self._get_required_env('MINIO_PASSWORD')
+    self.iceberg_catalog_endpoint = os.getenv('ICEBERG_CATALOG_ENDPOINT')
+    self.iceberg_warehouse = os.getenv('ICEBERG_WAREHOUSE', 'prefect')
+    self.iceberg_catalog_name = os.getenv('ICEBERG_CATALOG_NAME', 'lakehouse')
+    self.iceberg_token = os.getenv('ICEBERG_TOKEN')
 
   @staticmethod
   def _get_required_env(variable: str) -> str:
