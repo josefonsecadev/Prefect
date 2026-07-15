@@ -289,27 +289,34 @@ poetry run python -c "from pipelines.camara_deputados.despesas.orquestrador impo
 poetry run python -c "from pipelines.camara_deputados.deputados.orquestrador import executar_pipeline_deputados; executar_pipeline_deputados(year=2025)"
 ```
 
-Exemplo de `.vscode/launch.json` para depuração:
+### Depuração dentro do worker com Dev Containers
 
-```json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Debug Prefect Flow",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "pipelines.camara_deputados.despesas.orquestrador",
-      "console": "integratedTerminal",
-      "env": {
-        "PREFECT_API_URL": "http://localhost:4200/api",
-        "MINIO_ENDPOINT": "localhost:9000",
-        "ICEBERG_CATALOG_ENDPOINT": "http://localhost:8181/catalog"
-      }
-    }
-  ]
-}
+Instale no VS Code a extensão **Dev Containers**, da Microsoft. O projeto possui
+uma configuração em `.devcontainer` que reutiliza o serviço `prefect-worker` do
+Compose e monta o workspace local em `/app`.
+
+1. Suba a stack com `docker compose up --build -d`;
+2. abra a paleta com `F1`;
+3. execute `Dev Containers: Reopen in Container`;
+4. confirme que a nova janela abriu a pasta `/app` no `prefect-worker`;
+5. coloque os breakpoints e selecione `Dev Container: executar flow`;
+6. pressione `F5` e informe o módulo Python do flow.
+
+Exemplos de módulos:
+
+```text
+pipelines.camara_deputados.deputados.orquestrador
+pipelines.camara_deputados.despesas.orquestrador
 ```
+
+Não é necessário duplicar o `launch.json`: para outro flow, informe somente o
+novo módulo. O Python, as variáveis de ambiente e os nomes de rede usados na
+depuração são os mesmos do worker (`minio`, `lakekeeper` e `prefect-server`).
+
+O comando `Dev Containers: Attach to Running Container` também pode ser usado
+manualmente selecionando `prefect-worker` e abrindo `/app`, mas `Reopen in
+Container` é mais reproduzível porque aplica automaticamente as extensões e o
+bind mount definidos no repositório.
 
 ### 5. Testar somente a infraestrutura Iceberg
 

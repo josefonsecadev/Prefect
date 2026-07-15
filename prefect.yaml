@@ -11,7 +11,8 @@ deployments:
     work_pool:
       name: local
     schedule: null
-    parameters: {year}
+    parameters:
+      year: null
     tags:
       - camara_deputados
 
@@ -20,6 +21,7 @@ deployments:
     work_pool:
       name: local
     schedule: null
-    parameters: {data_inicio, data_fim}
+    parameters:
+      year: null
     tags:
       - camara_deputados
