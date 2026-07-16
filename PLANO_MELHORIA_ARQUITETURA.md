@@ -1,289 +1,149 @@
-# Plano de melhoria da arquitetura de dados
+# Plano de melhoria da arquitetura
 
-## 1. Objetivo
+Este plano contém somente problemas arquiteturais identificados, o impacto de mantê-los e a arquitetura que deve substituí-los. Regras e implementações específicas de datasets não fazem parte deste documento.
 
-Evoluir a plataforma Prefect + DuckDB + MinIO para processar com segurança:
+## 1. Publicação da Bronze sem contrato transacional
 
-- poucos arquivos e execução local;
-- milhões de objetos pequenos;
-- arquivos individuais com vários GB;
-- múltiplos flows simultâneos;
-- vários produtores e consumidores concorrentes no MinIO;
-- reprocessamentos sem duplicação ou perda de dados.
+**O que está ruim:** objetos da Bronze são gravados em caminhos finais e podem ser removidos antes da nova escrita. Não existe manifesto, versão publicada nem distinção formal entre uma carga completa e uma carga interrompida.
 
-## 2. Avaliação atual
+**Por que precisa mudar:** uma falha durante a escrita pode remover a versão anterior ou deixar um conjunto parcial disponível. Também não há rastreabilidade suficiente para determinar quais objetos formaram uma publicação.
 
-### Pontos positivos
-
-- Separação clara por projeto, pipeline e camadas bronze/prata/ouro.
-- Prefect fornece observabilidade, retries, agendamento e dependências entre etapas.
-- DuckDB é simples, rápido e eficiente para transformação analítica em uma única máquina.
-- MinIO desacopla armazenamento e processamento e mantém compatibilidade com S3.
-- Schemas centralizados em `info.py` facilitam padronização inicial.
-- Parquet na camada prata reduz leitura, armazenamento e tráfego em comparação com JSON/CSV.
-
-### Limitações e riscos
-
-1. `_read_dataframe` lista todos os objetos e cria uma tabela temporária por arquivo. O custo de memória, catálogo e planejamento SQL cresce linearmente com a quantidade de arquivos.
-2. `_read_arquivo` e partes da extração usam `BytesIO`, mantendo arquivos inteiros em RAM. Um arquivo de vários GB pode encerrar o worker por falta de memória.
-3. A união final materializa os dados novamente no DuckDB. O pico pode envolver dados de entrada, tabelas temporárias e tabela final ao mesmo tempo.
-4. O DuckDB está em memória e não possui limites explícitos de memória, threads ou diretório temporário.
-5. Escritas usam nomes finais diretamente e podem apagar dados antes de uma nova versão estar completa. Falhas no meio da execução podem deixar partições vazias ou incompletas.
-6. Não há manifesto de execução, checksum, watermark ou controle formal de idempotência.
-7. Dois flows podem escrever no mesmo prefixo simultaneamente, produzindo condição de corrida e resultado não determinístico.
-8. O worker possui concorrência 20, mas não existem limites separados por CPU, memória, API externa ou MinIO.
-9. O MinIO está em instância única e volume local único. Isso é adequado para desenvolvimento, mas não fornece alta disponibilidade nem tolerância à perda do disco.
-10. Todos os processos usam credenciais administrativas compartilhadas, sem políticas específicas por pipeline ou camada.
-11. Muitos JSONs pequenos aumentam latência de listagem, chamadas HTTP, metadados e custo de abertura de arquivos.
-12. A instalação de extensões DuckDB durante a criação de cada conexão depende de rede e adiciona latência e um ponto de falha.
-13. O Prefect usa armazenamento local no compose; em produção, o servidor e seu estado precisam de banco persistente e backup.
-14. Logs e erros não registram métricas padronizadas de volume, duração, throughput, memória, tentativas e arquivos rejeitados.
-
-## 3. Arquitetura recomendada
-
-### 3.1 Contrato de armazenamento
-
-Adotar paths imutáveis e particionados:
+**Substituir por:** armazenamento imutável por execução, seguido de publicação por metadados.
 
 ```text
-bronze/{projeto}/{pipeline}/ano=YYYY/mes=MM/dia=DD/run_id={id}/part-*.json
-prata/{projeto}/{pipeline}/ano=YYYY/mes=MM/data-*.parquet
-quarentena/{projeto}/{pipeline}/run_id={id}/...
+bronze/{dominio}/{dataset}/{particao}/run_id={id}/part-*
+bronze/{dominio}/{dataset}/{particao}/run_id={id}/manifest.json
+bronze/{dominio}/{dataset}/{particao}/_published.json
+quarentena/{dominio}/{dataset}/{particao}/run_id={id}/...
 ```
 
-Regras:
+O manifesto deve registrar arquivos, tamanhos, checksums, parâmetros, schema, contagens e status. O marcador `_published.json` deve apontar somente para uma execução validada. Limpeza e retenção devem ocorrer fora do caminho de publicação.
 
-- Bronze é append-only: nunca apagar ou sobrescrever dados de uma execução anterior.
-- Cada execução escreve primeiro em `_staging/run_id={id}`.
-- Publicar os dados somente após validação completa, por commit de metadados ou movimentação controlada do prefixo.
-- Criar um manifesto por execução contendo arquivos, tamanhos, ETags/checksums, schema, quantidade de registros, origem, timestamps e status.
-- A chave de idempotência deve combinar pipeline, partição lógica e parâmetros da execução.
-- Reprocessamentos geram nova versão; não alteram silenciosamente uma versão já publicada.
+**Critério de aceite:** uma falha antes da publicação mantém a versão anterior disponível; leitores nunca encontram uma versão parcial; cada publicação é rastreável até seus objetos e parâmetros.
 
-### 3.2 Leitura e transformação
+## 2. Idempotência e concorrência sem coordenação por partição
 
-Substituir a tabela temporária por arquivo por leitura vetorizada em lote:
+**O que está ruim:** existe apenas um limite global de concorrência. Execuções que publicam na mesma partição lógica não possuem exclusão mútua, enquanto cargas com perfis diferentes disputam a mesma capacidade.
 
-- Para arquivos homogêneos, passar uma lista de paths ou glob diretamente a `read_json_auto`, `read_csv_auto` ou `read_parquet`.
-- Usar `union_by_name=true` quando apropriado.
-- Validar o schema com metadados/amostras antes da materialização completa.
-- Processar formatos diferentes em grupos por extensão, não individualmente.
-- Unir poucos grupos de leitura, em vez de milhares de tabelas temporárias.
-- Projetar somente colunas necessárias e aplicar filtros de partição na origem.
-- Para arquivos gigantes, fazer leitura streaming/chunked ou deixar o DuckDB ler diretamente do S3; nunca converter todo o arquivo para `bytes` ou `BytesIO`.
-- Configurar `memory_limit`, `threads`, `temp_directory` e `max_temp_directory_size` por worker.
-- Usar banco DuckDB temporário em disco para cargas maiores que a memória disponível.
-- Definir limite de arquivos e bytes por lote; criar múltiplas tasks quando o limite for excedido.
+**Por que precisa mudar:** escritores concorrentes podem gerar conflitos ou resultados não determinísticos. Um limite global também permite que cargas pesadas esgotem recursos necessários às demais.
 
-Configuração inicial sugerida por worker:
+**Substituir por:** chave operacional `(dataset, partição lógica)`, limites de concorrência por perfil de recurso e lock de publicação por chave. O Iceberg deve continuar como fronteira transacional e rejeitar conflitos inesperados.
 
-```sql
-SET memory_limit = '60%';
-SET threads = 4;
-SET temp_directory = '/var/lib/pipeline/tmp';
-SET preserve_insertion_order = false;
+Perfis mínimos:
+
+- I/O leve;
+- transformação intensiva em CPU;
+- arquivos grandes e alto consumo de memória.
+
+**Critério de aceite:** duas execuções da mesma chave não publicam simultaneamente; chaves distintas podem avançar em paralelo; conflitos nunca são resolvidos por sobrescrita silenciosa.
+
+## 3. Processamento sem orçamento de recursos
+
+**O que está ruim:** DuckDB opera em memória sem limites explícitos de memória, threads, spill ou armazenamento temporário. A concorrência do worker não considera o consumo máximo de cada execução.
+
+**Por que precisa mudar:** uma única carga pode consumir toda a memória ou o disco do worker. Com concorrência elevada, o risco é multiplicado e pode indisponibilizar todas as execuções no mesmo host.
+
+**Substituir por:** perfis de execução com `memory_limit`, `threads`, `temp_directory`, limite de spill, limite de lote e diretório temporário exclusivo. O número de execuções simultâneas deve ser calculado pelo orçamento de memória:
+
+```text
+concorrência máxima x memória máxima por execução < memória útil do worker
 ```
 
-Os valores devem ser parametrizados conforme CPU e memória do ambiente.
+**Critério de aceite:** nenhuma execução ultrapassa o orçamento definido; spill não disputa o mesmo diretório entre execuções; falta de recurso encerra somente a carga afetada e produz diagnóstico operacional.
 
-### 3.3 Formato e compactação
+## 4. Estratégia de leitura que não escala com volume
 
-- Converter JSON/CSV bronze para Parquet o mais cedo possível.
-- Usar compressão ZSTD e row groups entre 64 MB e 256 MB.
-- Buscar arquivos Parquet finais entre 128 MB e 1 GB; evitar tanto arquivos minúsculos quanto arquivos únicos enormes.
-- Criar uma rotina de compactação para partições com muitos arquivos pequenos.
-- Particionar apenas por colunas usadas com frequência em filtros e com cardinalidade baixa/moderada, como ano e mês.
-- Não particionar por identificadores de alta cardinalidade, como deputado ou documento.
-- Ordenar dentro do Parquet por colunas de filtros comuns quando isso melhorar pruning.
+**O que está ruim:** a leitura cria uma tabela temporária por objeto e materializa arquivos grandes integralmente em memória em partes do caminho de dados. Listagens recursivas amplas são usadas para descobrir entradas.
 
-### 3.4 Schema e qualidade
+**Por que precisa mudar:** o custo de catálogo e planejamento cresce linearmente com a quantidade de objetos. Arquivos maiores que a memória disponível podem encerrar o worker, e listagens amplas degradam conforme o armazenamento cresce.
 
-- Mover schemas para modelos tipados/versionados, com versão registrada no manifesto.
-- Separar validação de presença, conversão de tipo e regras de negócio.
-- Validar todos os arquivos antes de publicar a partição.
-- Enviar arquivos inválidos à quarentena, mantendo nome, erro, schema esperado e run ID.
-- Definir política explícita para colunas extras, ausentes, nulas e casts inválidos.
-- Usar `TRY_CAST` somente quando houver regra para tratar os valores rejeitados; não ocultar erros silenciosamente.
-- Registrar contagens de entrada, saída, rejeitados, duplicados e nulos por coluna crítica.
+**Substituir por:** leitura vetorizada em lotes, consumo orientado por manifestos, streaming de objetos grandes, spill controlado e compactação periódica de arquivos pequenos. Lotes devem ter limites tanto por quantidade de objetos quanto por bytes.
 
-### 3.5 Concorrência e Prefect
+**Critério de aceite:** o número de tabelas temporárias não cresce com o número de objetos; arquivos maiores que a memória são processados com streaming/spill; entradas são selecionadas por manifesto ou prefixo específico.
 
-- Criar work pools separados por perfil: `io-small`, `cpu-transform` e `large-files`.
-- Aplicar limites de concorrência por recurso, não apenas um limite global.
-- Usar uma chave de concorrência por partição, por exemplo `deputados-prata-2026`, impedindo duas escritas simultâneas no mesmo destino.
-- Permitir paralelismo entre anos/partições diferentes.
-- Configurar retries com exponential backoff e jitter para API e MinIO.
-- Definir timeout por task e cancelamento seguro.
-- Não compartilhar uma conexão DuckDB entre tasks ou threads. Cada task deve possuir conexão e diretório temporário próprios.
-- Aplicar limites menores para tasks de arquivos grandes, considerando memória reservada por execução.
-- Persistir resultados intermediários somente quando necessário; preferir referências a objetos no MinIO em vez de bytes no estado do Prefect.
+## 5. Ambiente local usado como topologia de disponibilidade
 
-Exemplo de capacidade:
+**O que está ruim:** Prefect e MinIO dependem de armazenamento local em instância única. Não há separação arquitetural formal entre desenvolvimento, homologação e produção.
 
-| Perfil | Concorrência inicial | Uso esperado |
-|---|---:|---|
-| `io-small` | 8–16 | Downloads e uploads pequenos |
-| `cpu-transform` | 2–4 | Conversão e compactação Parquet |
-| `large-files` | 1 | Arquivos com vários GB |
+**Por que precisa mudar:** falha do host ou do disco pode interromper a orquestração e tornar dados indisponíveis. O ambiente local não fornece redundância, failover nem recuperação comprovada.
 
-Esses números são ponto de partida e devem ser ajustados por métricas de CPU, RAM, disco e rede.
+**Substituir por:** manter Docker Compose apenas para desenvolvimento e criar uma topologia de produção com:
 
-### 3.6 MinIO
+- banco PostgreSQL persistente e dedicado ao Prefect;
+- MinIO distribuído ou serviço S3 compatível com redundância equivalente;
+- PostgreSQL do Lakekeeper com backup e restore;
+- workers separados por perfil de recurso;
+- configurações independentes por ambiente;
+- healthchecks de prontidão, não apenas de processo ativo.
 
-Para desenvolvimento e pequena escala:
+**Critério de aceite:** desenvolvimento e produção possuem configurações isoladas; falha de um worker não interrompe toda a plataforma; serviços de estado podem ser restaurados dentro do RPO e RTO definidos.
 
-- Manter instância única, mas habilitar versionamento, lifecycle e backups.
-- Criar usuários e policies por ambiente e por função.
-- Separar credenciais de leitura da bronze e escrita da prata.
+## 6. Backup e recuperação não definidos
 
-Para produção e grande escala:
+**O que está ruim:** volumes persistentes existem, mas não há política arquitetural de backup, restore, RPO, RTO ou teste de desastre.
 
-- Executar MinIO distribuído com múltiplos nós e discos, erasure coding e volumes dedicados.
-- Usar rede e discos dimensionados para o throughput simultâneo esperado.
-- Habilitar métricas Prometheus, alertas, auditoria e verificação periódica de integridade.
-- Configurar lifecycle para staging abandonado, versões antigas e retenção da bronze.
-- Avaliar replicação para outro cluster/site e testes regulares de restauração.
-- Evitar listagens recursivas amplas; consultar prefixos de partição específicos ou manifestos.
-- Monitorar latência, erros 4xx/5xx, throughput, quantidade de objetos, espaço livre e tempo de healing.
+**Por que precisa mudar:** persistência local não equivale a backup. Sem restauração testada, não é possível afirmar que catálogo, estados de orquestração e dados podem ser recuperados.
 
-### 3.7 Catálogo e transações
+**Substituir por:** backups automatizados e versionados para PostgreSQL, catálogo e armazenamento; cópia em domínio de falha separado; runbook de recuperação; testes periódicos de restore e perda de nó/disco.
 
-Quando houver múltiplos escritores/leitores, evolução de schema ou necessidade de snapshots, adotar Apache Iceberg de forma efetiva:
+**Critério de aceite:** RPO e RTO estão aprovados; restaurações são executadas periodicamente; o tempo e a integridade da recuperação são registrados.
 
-- Usar um catálogo persistente compatível, em vez de apenas carregar a extensão DuckDB.
-- Publicar commits atômicos e snapshots.
-- Usar optimistic concurrency control para escritores concorrentes.
-- Executar manutenção de snapshots, manifests e arquivos órfãos.
-- Permitir time travel e rollback de versões.
+## 7. Credenciais administrativas compartilhadas e transporte sem TLS
 
-Parquet simples permanece suficiente para cargas pequenas, um único escritor por partição e baixa necessidade de evolução transacional.
+**O que está ruim:** serviços compartilham credenciais administrativas do armazenamento e conexões são configuradas sem TLS.
 
-### 3.8 Segurança e configuração
+**Por que precisa mudar:** o comprometimento de uma execução concede acesso amplo ao datalake e ao warehouse. Sem TLS, credenciais e dados podem trafegar sem criptografia fora do ambiente local.
 
-- Validar variáveis de ambiente na inicialização e falhar com mensagem clara.
-- Armazenar segredos em Prefect Blocks/Secrets ou secret manager; não usar credenciais root nos flows.
-- Habilitar TLS entre workers e MinIO em produção.
-- Fixar versões das imagens Docker; evitar tags `latest`.
-- Pré-instalar extensões DuckDB na imagem ou em diretório persistente e carregar sem `INSTALL` a cada conexão.
-- Executar containers com usuário não root e filesystem temporário controlado.
-- Separar configurações de desenvolvimento, homologação e produção.
+**Substituir por:** identidades de menor privilégio por ambiente, camada e função; credenciais distintas para leitura e escrita; segredos gerenciados por Prefect Blocks/Secrets ou secret manager; TLS obrigatório fora do desenvolvimento local.
 
-### 3.9 Observabilidade
+**Critério de aceite:** nenhuma carga usa credencial root; permissões são validadas por testes positivos e negativos; segredos não aparecem em código, logs ou arquivos versionados; conexões de produção exigem TLS.
 
-Registrar por task e partição:
+## 8. Builds e inicialização não reproduzíveis
 
-- run ID e versão do código;
-- arquivos e bytes lidos/escritos;
-- registros de entrada, saída e quarentena;
+**O que está ruim:** imagens usam tags flutuantes e extensões DuckDB são instaladas durante a criação de conexões.
+
+**Por que precisa mudar:** a mesma configuração pode produzir ambientes diferentes ao longo do tempo. A inicialização depende de rede externa e pode falhar mesmo quando os serviços internos estão saudáveis.
+
+**Substituir por:** imagens fixadas por versão ou digest, dependências diretas declaradas no lock e extensões DuckDB instaladas durante o build da imagem. Em runtime, somente extensões já disponíveis devem ser carregadas.
+
+**Critério de aceite:** builds repetidos usam os mesmos artefatos; a execução inicia sem baixar dependências; atualização de versão ocorre por mudança explícita e validada.
+
+## 9. Observabilidade sem padrão de plataforma
+
+**O que está ruim:** logs não seguem um contrato comum e não existem métricas padronizadas de volume, duração, recursos, qualidade e publicação.
+
+**Por que precisa mudar:** não é possível comparar capacidade, detectar regressões ou relacionar uma versão publicada à execução que a produziu.
+
+**Substituir por:** logs estruturados e métricas centralizadas com, no mínimo:
+
+- `run_id`, versão do código, dataset e partição lógica;
+- arquivos, bytes e registros lidos e escritos;
+- registros válidos, rejeitados e duplicados;
 - duração, throughput, retries e status;
-- memória máxima, uso do diretório temporário e CPU;
-- schema e partição publicados;
-- ETags/checksums e manifesto gerado.
+- pico de memória, CPU e uso de spill;
+- versão Bronze consumida e snapshot Iceberg publicado.
 
-Criar alertas para:
+Adicionar dashboards e alertas para falhas, atraso, divergência de contagem, falta de espaço, crescimento de rejeições, excesso de arquivos pequenos e staging antigo.
 
-- falha ou atraso de flow;
-- divergência de contagem;
-- crescimento inesperado de nulos ou rejeitados;
-- pouco espaço em disco/MinIO;
-- latência e taxa de erro elevadas;
-- excesso de arquivos pequenos;
-- staging antigo sem commit.
+**Critério de aceite:** uma execução pode ser rastreada da entrada ao snapshot; saturação e regressões geram alerta; capacidade e SLOs podem ser calculados a partir das métricas coletadas.
 
-## 4. Cenários operacionais
+## 10. Ausência de manutenção do Iceberg e do armazenamento
 
-### Pequena escala
+**O que está ruim:** não existem políticas automatizadas para snapshots antigos, manifests, objetos órfãos, temporários abandonados e arquivos pequenos.
 
-DuckDB em memória e MinIO único são suficientes quando o volume cabe confortavelmente em RAM/disco, existe um escritor por partição e a indisponibilidade local é aceitável. Mesmo nesse cenário, implementar escrita em staging, idempotência, manifestos e limites de concorrência.
+**Por que precisa mudar:** metadados e armazenamento crescem indefinidamente, aumentando custo e tempo de planejamento. Remoções manuais no warehouse podem quebrar a consistência do catálogo.
 
-### Muitos arquivos pequenos
+**Substituir por:** rotinas agendadas e auditáveis de expiração de snapshots, remoção segura de órfãos, compactação, limpeza de staging e aplicação de lifecycle no MinIO. O warehouse Iceberg deve ser alterado exclusivamente pelo catálogo.
 
-O gargalo principal será metadado e abertura de objetos, não CPU. Agrupar leituras por formato, evitar `list_objects` amplo, compactar periodicamente e consumir a partir de manifestos. Não criar uma tabela DuckDB por arquivo.
+**Critério de aceite:** retenção possui prazo definido; nenhum objeto do warehouse é removido fora do catálogo; crescimento de manifests e arquivos pequenos é monitorado e mantido dentro dos limites acordados.
 
-### Arquivos com vários GB
+## 11. Ordem de implementação
 
-Não usar `BytesIO`. Fazer multipart upload e leitura direta S3/streaming. Reservar worker exclusivo, limitar memória, habilitar spill para SSD e produzir múltiplos Parquets de tamanho controlado.
+1. Publicação imutável, manifesto e idempotência.
+2. Locks por partição e limites de recursos.
+3. Leitura em lote, streaming e compactação.
+4. Credenciais de menor privilégio, TLS e builds reproduzíveis.
+5. Métricas, alertas e manutenção automatizada.
+6. Topologia de produção, backup e recuperação testada.
 
-### Muitos flows simultâneos
-
-Aplicar concorrência por recurso e lock por partição. Isolar diretórios temporários e conexões. Dimensionar o número de workers pela memória, não somente por CPU. Um limite global de 20 processos pode ser perigoso se cada DuckDB consumir vários GB.
-
-### Muitos dispositivos lendo e escrevendo no MinIO
-
-Usar objetos imutáveis, publicação atômica por metadados e credenciais específicas. Leitores devem consumir somente versões marcadas como completas. Escalar MinIO horizontalmente e monitorar rede, discos e filas de requests.
-
-## 5. Plano de implementação
-
-### Fase 0 — Medição e critérios
-
-- [ ] Definir volumes atuais e projetados: arquivos/dia, bytes/dia, tamanho máximo e retenção.
-- [ ] Definir SLOs de duração, disponibilidade, recuperação e perda aceitável de dados.
-- [ ] Criar benchmark com 10 mil arquivos pequenos, arquivo de 10 GB e quatro flows simultâneos.
-- [ ] Medir baseline de RAM, CPU, disco temporário, requests MinIO e duração.
-
-Critério de conclusão: baseline reproduzível e limites operacionais documentados.
-
-### Fase 1 — Segurança e idempotência
-
-- [ ] Adicionar run ID e paths de staging.
-- [ ] Publicar manifesto e marcador de sucesso somente após validação.
-- [ ] Remover exclusão antes da escrita e tornar bronze append-only.
-- [ ] Implementar chave idempotente e lock/concurrency limit por partição.
-- [ ] Adicionar retries, timeout e backoff para API/MinIO.
-- [ ] Implementar quarentena e limpeza automática de staging abandonado.
-
-Critério de conclusão: uma falha ou reexecução não perde, duplica nem expõe dados parciais.
-
-### Fase 2 — Memória e grandes arquivos
-
-- [ ] Remover `BytesIO` de caminhos de dados grandes.
-- [ ] Implementar upload multipart e streams seekable quando necessário.
-- [ ] Configurar DuckDB com limites de memória, threads e spill em disco.
-- [ ] Isolar diretório temporário por run/task.
-- [ ] Ler diretamente do MinIO e escrever Parquet em partes controladas.
-- [ ] Criar testes de carga para arquivo maior que a RAM do worker.
-
-Critério de conclusão: processar arquivo maior que a RAM sem encerramento do worker.
-
-### Fase 3 — Muitos arquivos
-
-- [ ] Agrupar objetos por formato e executar uma leitura DuckDB por grupo/lote.
-- [ ] Substituir listagens amplas por manifestos e prefixes particionados.
-- [ ] Implementar tamanho máximo de lote por quantidade e bytes.
-- [ ] Adicionar compactação automática de pequenos Parquets.
-- [ ] Coletar métricas de quantidade e tamanho médio dos objetos.
-
-Critério de conclusão: processar 10 mil arquivos sem criar 10 mil tabelas temporárias e com memória limitada.
-
-### Fase 4 — Concorrência e infraestrutura
-
-- [ ] Criar work pools por perfil de carga.
-- [ ] Dimensionar concorrência com base em RAM reservada por task.
-- [ ] Migrar o backend do Prefect para banco persistente com backup.
-- [ ] Fixar imagens e pré-instalar dependências/extensões.
-- [ ] Criar policies MinIO de menor privilégio e habilitar TLS.
-- [ ] Implantar dashboards e alertas.
-
-Critério de conclusão: flows concorrentes em partições diferentes não interferem; a mesma partição possui exclusão mútua.
-
-### Fase 5 — Escala distribuída e governança
-
-- [ ] Implantar MinIO distribuído e testar falha de nó/disco.
-- [ ] Adotar catálogo Iceberg quando houver múltiplos escritores ou necessidade de snapshots.
-- [ ] Implementar manutenção de snapshots, manifests e arquivos órfãos.
-- [ ] Testar restore, replicação e disaster recovery.
-- [ ] Versionar contratos de schema e definir política de evolução.
-
-Critério de conclusão: publicação transacional, recuperação testada e tolerância à falha definida pelo SLO.
-
-## 6. Ordem de prioridade
-
-1. Escrita segura, idempotência e lock por partição.
-2. Eliminação de `BytesIO` e limites explícitos do DuckDB.
-3. Leitura em lote e compactação de arquivos pequenos.
-4. Observabilidade e work pools dimensionados por recurso.
-5. MinIO distribuído e catálogo Iceberg quando a escala justificar.
-
-## 7. Decisão prática
-
-Não migrar imediatamente para Spark ou outra engine distribuída. Primeiro otimizar o desenho com DuckDB, particionamento, batches, spill e workers isolados. Considerar engine distribuída somente quando uma única partição precisar ser processada em paralelo por várias máquinas, o SLA não puder ser atendido por scale-up, ou o volume ultrapassar de forma recorrente a capacidade de disco e memória de um worker dimensionado.
+Cada item deve ser executado em etapas que alterem no máximo cinco arquivos e somente será concluído quando seu critério de aceite possuir evidência reproduzível.

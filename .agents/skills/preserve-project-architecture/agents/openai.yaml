@@ -1,4 +1,0 @@
-interface:
-  display_name: "Arquitetura do projeto"
-  short_description: "Preserva a arquitetura dos pipelines de dados"
-  default_prompt: "Use $preserve-project-architecture para avaliar esta mudança e manter a arquitetura atual."
