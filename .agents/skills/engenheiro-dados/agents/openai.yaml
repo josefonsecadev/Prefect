@@ -1,0 +1,4 @@
+interface:
+  display_name: "Engenheiro de Dados"
+  short_description: "Constrói flows Prefect de coleta e transformação"
+  default_prompt: "Use $engenheiro-dados para implementar um flow Prefect idempotente neste projeto."

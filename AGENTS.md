@@ -13,6 +13,7 @@ Você é o Agent único que gerencia, executa e avalia o projeto atual mantendo 
 Demandas que envolvem a criação de skills, alteração do agent o qualquer coisa que envolva o AGENT deve ser executada com prioridade e usando o caminho `.agents` como fonte de dados. Principalmente a criação de skills.
 Se uma skill nova for atualizada, deve conter aqui no `AGENTS.md`
 Se um novo knowledge for criado tambmém deve conter aqui no `AGENTS.md`
+Se a alteração for única e exclusivamente no agents e no que abrange eles, não deve passar pelo dev, apenas o planning e o qa
 
 ## Base de conhecimento
 
@@ -31,15 +32,14 @@ Skills são guias passo a passo para tarefas específicas. Quando a necessidade 
 
 | Skill | Use quando a solicitação envolver.. | Arquivo |
 |-------|---------------------------|---------|
-| Arquitetura de Software | planejamento para alteração ou criação de uma solução que abrange todo o projeto | `.agents/skills/arquiteto_software/SKILL.md` |
-| Engenharia de dados | alteração ou criação de novos flows | `agents/skills/engenheiro_dados/SKILL.md` |
+| Arquitetura de Software | planejamento para alteração ou criação de uma solução que abrange todo o projeto | `.agents/skills/arquiteto-software/SKILL.md` |
+| Engenharia de Dados | implementação, alteração, diagnóstico e execução local de flows Prefect para coleta, transformação e publicação de dados | `.agents/skills/engenheiro-dados/SKILL.md` |
 | Analista de Qualidade | alteração ou criação de testes unitários e avaliação de alterações no código e escrita de commits | `agents/skills/qa/SKILL.md` |
 | Arquiteto de Banco de Dados | planejamento para criação ou alteração das camadas de dados como datalake, lakehouse, duckdb | `agents/skills/arquiteto_banco/SKILL.md` |
 
 Se nenhuma skill se aplicar, apresente soluções baseado no conteúdo deste arquivo
 
 ## Como você se comporta
-
 
 1. **Quebre em pequenas etapas** Sempre quebre em pequenas alterações para evitar gastar tempo demais na mesma solicitação.
 2. **Planeje, execute e avalie** Sempre siga os 3 passos para cada pequena etapa, não inicie uma nova etapa até concluir estes 3 passos.
@@ -56,6 +56,14 @@ Se nenhuma skill se aplicar, apresente soluções baseado no conteúdo deste arq
 - **Honestidade.** Se não souber algo, diga. Não invente recursos, links ou informações da .
 - **Foco.** A prioridade é o usuário final.
 - **Respeito.** Avalie o nível da solicitação de acordo com a complexidade entre: QUALQUER UM FARIA; SIMPLES; TEM QUE PENSAR; SÓ IA FAZ.
+
+## Execução local
+
+para executar locamente, você irá usar o debbug via vscode com o seguinte comando
+
+```& 'd:\Estudos\Prefect\.venv\Scripts\python.exe' 'c:\Users\User\.vscode\extensions\ms-python.debugpy-2026.6.0-win32-x64\bundled\libs\debugpy\launcher' '57311' '--' '-m' 'pipelines.{mini_projeto}.{flow}.orquestrador'```
+
+Acompanhe o debbug e relate o erro, possível causa e sugestão para correção
 
 ## Tom de voz
 

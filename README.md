@@ -39,17 +39,17 @@ O bucket `bronze` recebe os arquivos brutos. O bucket `iceberg` contém o
 warehouse gerenciado pelo Lakekeeper; não se deve criar, mover ou excluir
 manualmente objetos dentro desse warehouse.
 
-Prata e ouro são camadas lógicas representadas por namespaces no catálogo:
+Prata e ouro são camadas lógicas representadas por namespaces no catálogo.
+Como o DuckDB endereça tabelas no formato `catálogo.schema.tabela`, cada
+namespace combina a camada e o projeto:
 
 ```text
 lakehouse
-├── prata
-│   └── camara_deputados
-│       ├── deputados
-│       └── despesas
-└── ouro
-    └── <projeto>
-        └── <tabela destinada ao consumo>
+├── prata_camara_deputados
+│   ├── deputados
+│   └── despesas
+└── ouro_<projeto>
+    └── <tabela destinada ao consumo>
 ```
 
 Somente a camada ouro deve ser disponibilizada para dashboards e usuários
@@ -87,8 +87,8 @@ MinIO
 As tabelas prata atuais são:
 
 ```sql
-lakehouse.prata.camara_deputados.deputados
-lakehouse.prata.camara_deputados.despesas
+lakehouse.prata_camara_deputados.deputados
+lakehouse.prata_camara_deputados.despesas
 ```
 
 Cada reprocessamento substitui somente a partição anual correspondente e gera
@@ -96,14 +96,14 @@ um novo snapshot. Exemplos de consulta no DuckDB, depois de anexar o catálogo:
 
 ```sql
 SELECT *
-FROM lakehouse.prata.camara_deputados.deputados;
+FROM lakehouse.prata_camara_deputados.deputados;
 
 SELECT *
-FROM iceberg_snapshots(lakehouse.prata.camara_deputados.deputados)
+FROM iceberg_snapshots(lakehouse.prata_camara_deputados.deputados)
 ORDER BY timestamp_ms DESC;
 
 SELECT *
-FROM lakehouse.prata.camara_deputados.deputados
+FROM lakehouse.prata_camara_deputados.deputados
 AT (VERSION => <snapshot_id>);
 ```
 

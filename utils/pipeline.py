@@ -341,7 +341,7 @@ class Pipeline(Conexoes):
                     ) -> dict:
     """Publica uma tabela DuckDB em Iceberg com commit transacional.
 
-    Salva em ``camada.projeto.tabela``. Se ``replace_by`` for passado,
+    Salva em ``camada_projeto.tabela``. Se ``replace_by`` for passado,
     somente a partição lógica indicada é substituída, tornando reprocessamentos
     idempotentes. O retorno contém os metadados do snapshot mais recente.
     """
@@ -350,11 +350,10 @@ class Pipeline(Conexoes):
     catalog_name = self._attach_iceberg_catalog()
 
     catalog = self._sql_identifier(catalog_name)
-    camada_sql = self._sql_identifier(self.camada)
-    projeto_sql = self._sql_identifier(self.project_name)
+    namespace = self._iceberg_namespace()
     destino_sql = self._sql_identifier(tabela_destino)
     origem_sql = self._sql_identifier(tabela_origem)
-    tabela_iceberg = f"{catalog}.{camada_sql}.{projeto_sql}.{destino_sql}"
+    tabela_iceberg = f"{catalog}.{namespace}.{destino_sql}"
 
     partition = partition or []
     colunas_invalidas = [
@@ -367,10 +366,7 @@ class Pipeline(Conexoes):
       )
 
     self.duckdb_conn.execute(
-        f"CREATE SCHEMA IF NOT EXISTS {catalog}.{camada_sql}"
-    )
-    self.duckdb_conn.execute(
-        f"CREATE SCHEMA IF NOT EXISTS {catalog}.{camada_sql}.{projeto_sql}"
+        f"CREATE SCHEMA IF NOT EXISTS {catalog}.{namespace}"
     )
 
     colunas = ", ".join(
@@ -415,6 +411,12 @@ class Pipeline(Conexoes):
     return dict(zip(colunas_snapshot, valores_snapshot)) if valores_snapshot else {}
 
 
+  def _iceberg_namespace(self, camada: Optional[str] = None) -> str:
+    """Retorna o namespace SQL que identifica a camada e o projeto."""
+
+    return self._sql_identifier(f"{camada or self.camada}_{self.project_name}")
+
+
   def _iceberg_snapshots(self,
                          tabela: str,
                          camada: Optional[str] = None) -> list[dict]:
@@ -423,8 +425,7 @@ class Pipeline(Conexoes):
     catalog_name = self._attach_iceberg_catalog()
     tabela_iceberg = ".".join((
         self._sql_identifier(catalog_name),
-        self._sql_identifier(camada or self.camada),
-        self._sql_identifier(self.project_name),
+        self._iceberg_namespace(camada),
         self._sql_identifier(tabela)
     ))
     resultado = self.duckdb_conn.execute(
@@ -446,8 +447,7 @@ class Pipeline(Conexoes):
     catalog_name = self._attach_iceberg_catalog()
     origem = ".".join((
         self._sql_identifier(catalog_name),
-        self._sql_identifier(camada_origem),
-        self._sql_identifier(self.project_name),
+        self._iceberg_namespace(camada_origem),
         self._sql_identifier(tabela_origem)
     ))
     destino = self._sql_identifier(tabela_destino)

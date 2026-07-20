@@ -1,0 +1,4 @@
+interface:
+  display_name: "Arquiteto de Software"
+  short_description: "Planeja soluções transversais com contratos claros"
+  default_prompt: "Use $arquiteto-software para planejar uma mudança arquitetural neste projeto."
