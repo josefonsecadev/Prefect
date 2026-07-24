@@ -10,4 +10,5 @@ class Camara:
                  url_base: str | None = None):
         self.url_base = url_base or "https://dadosabertos.camara.leg.br/api/v2/"
         self.deputados = self.url_base + "deputados"
-        self.url_despesas_ano = "http://www.camara.leg.br/cotas/Ano-{ano}.csv.zip"  
+        self.legislaturas = self.url_base + "legislaturas"
+        self.url_despesas_ano = "http://www.camara.leg.br/cotas/Ano-{ano}.csv.zip"

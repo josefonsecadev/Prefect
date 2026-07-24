@@ -337,14 +337,19 @@ class Pipeline(Conexoes):
                     tabela_destino: str,
                     schema: dict[str, str],
                     partition: Optional[list[str]] = None,
-                    replace_by: Optional[dict[str, object]] = None
+                    replace_by: Optional[dict[str, object]] = None,
+                    replace_all: bool = False
                     ) -> dict:
     """Publica uma tabela DuckDB em Iceberg com commit transacional.
 
     Salva em ``camada_projeto.tabela``. Se ``replace_by`` for passado,
-    somente a partição lógica indicada é substituída, tornando reprocessamentos
-    idempotentes. O retorno contém os metadados do snapshot mais recente.
+    somente a partição lógica indicada é substituída. Com ``replace_all``,
+    substitui integralmente tabelas sem recorte. O retorno contém os metadados
+    do snapshot mais recente.
     """
+
+    if replace_by and replace_all:
+      raise ValueError("replace_by e replace_all não podem ser usados juntos")
 
     self._apply_schema(tabela_origem, schema)
     catalog_name = self._attach_iceberg_catalog()
@@ -394,6 +399,8 @@ class Pipeline(Conexoes):
             f"DELETE FROM {tabela_iceberg} WHERE {filtros}",
             list(replace_by.values())
         )
+      elif replace_all:
+        self.duckdb_conn.execute(f"DELETE FROM {tabela_iceberg}")
       self.duckdb_conn.execute(
           f"INSERT INTO {tabela_iceberg} BY NAME SELECT * FROM {origem_sql}"
       )
