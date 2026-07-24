@@ -56,13 +56,15 @@ Manter PostgreSQL como dependência interna do Lakekeeper. Não atribuir regras 
 Antes de entregar o plano:
 
 - verificar se toda decisão obrigatória de `planning.md` foi resolvida ou marcada como bloqueio;
-- testar mentalmente sucesso, falha parcial, retry e reprocessamento do mesmo recorte;
+- avaliar no desenho os comportamentos de sucesso, falha parcial, retry e reprocessamento do mesmo recorte;
 - confirmar que falhas de contrato não serão mascaradas como sucesso;
 - procurar acoplamento desnecessário, duplicação de capacidade comum e ponto único de falha;
-- conferir se critérios de aceite podem ser observados e testados;
+- definir critérios de aceite observáveis durante a reprodução local do flow completo;
 - registrar riscos, mitigação e risco residual.
 
 Se a demanda for específica da modelagem ou persistência de dados, complementar com a skill de Arquiteto de Banco de Dados. Se tratar apenas da implementação de um flow já arquitetado, encaminhar para Engenharia de Dados.
+
+Não planejar arquivos de testes, fixtures, mocks ou validações isoladas para flows, salvo quando o usuário os solicitar explicitamente. Não exigir testes antes do encaminhamento para outra skill. A validação executável deve ocorrer depois da implementação, pela reprodução local do flow completo até uma execução sem falhas.
 
 ## Entregar o planejamento
 
@@ -72,6 +74,6 @@ Apresentar nesta ordem:
 3. **Arquitetura proposta** — definir componentes, responsabilidades, fluxo e contratos.
 4. **Decisões e justificativas** — explicar escolhas e alternativas descartadas.
 5. **Etapas de execução** — dividir em alterações pequenas, cada uma com no máximo cinco arquivos.
-6. **Critérios de aceite** — associar cada etapa a validações objetivas.
+6. **Critérios de aceite** — definir como sucesso a execução local completa do flow sem falhas e os resultados operacionais observáveis nessa execução.
 
 Não escrever a implementação enquanto houver decisão arquitetural relevante em aberto. Atualizar `.agents/knowledge/planning.md` quando a decisão aprovada evoluir a arquitetura geral do projeto.

@@ -36,11 +36,10 @@
 - Concorrência sobre a mesma partição precisa ser impedida, serializada ou tratada com conflito explícito.
 - Retry pode envolver leitura e commit transitório, mas não corrige schema incompatível, SQL inválido ou regra de qualidade violada.
 
-## Validação
+## Validação na execução local
 
-- Comparar contagens e chaves entre Bronze, Prata e rejeitados.
-- Verificar tipos, nulabilidade, unicidade, domínio e limites definidos no contrato.
-- Consultar a tabela publicada por meio do catálogo e confirmar o snapshot.
-- Reprocessar o mesmo recorte e comparar contagens e chaves.
-- Confirmar que partições fora do recorte permaneceram inalteradas.
-- Testar payload vazio, schema novo ou ausente, dados duplicados e conflito de commit.
+- Não criar arquivos de testes, fixtures, mocks ou cenários simulados para validar a publicação, salvo solicitação explícita do usuário.
+- Depois de concluir a implementação, reproduzir o flow completo localmente.
+- Durante essa execução, observar contagens, schema, partições e snapshot publicado por meio dos logs e do catálogo.
+- Quando a execução falhar, diagnosticar a causa concreta, aplicar a menor correção e executar novamente até o flow terminar sem falhas.
+- Não exigir validações isoladas ou testes antes de encaminhar o trabalho para outra etapa ou skill.

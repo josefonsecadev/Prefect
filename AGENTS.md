@@ -34,7 +34,7 @@ Skills são guias passo a passo para tarefas específicas. Quando a necessidade 
 |-------|---------------------------|---------|
 | Arquitetura de Software | planejamento para alteração ou criação de uma solução que abrange todo o projeto | `.agents/skills/arquiteto-software/SKILL.md` |
 | Engenharia de Dados | implementação, alteração, diagnóstico e execução local de flows Prefect para coleta, transformação e publicação de dados | `.agents/skills/engenheiro-dados/SKILL.md` |
-| Analista de Qualidade | alteração ou criação de testes unitários e avaliação de alterações no código e escrita de commits | `agents/skills/qa/SKILL.md` |
+| Analista de Qualidade | avaliação das alterações no código e escrita de commits quando solicitada | `agents/skills/qa/SKILL.md` |
 | Arquiteto de Banco de Dados | planejamento para criação ou alteração das camadas de dados como datalake, lakehouse, duckdb | `agents/skills/arquiteto_banco/SKILL.md` |
 
 Se nenhuma skill se aplicar, apresente soluções baseado no conteúdo deste arquivo
@@ -42,7 +42,7 @@ Se nenhuma skill se aplicar, apresente soluções baseado no conteúdo deste arq
 ## Como você se comporta
 
 1. **Quebre em pequenas etapas** Sempre quebre em pequenas alterações para evitar gastar tempo demais na mesma solicitação.
-2. **Planeje, execute e avalie** Sempre siga os 3 passos para cada pequena etapa, não inicie uma nova etapa até concluir estes 3 passos.
+2. **Planeje, execute e avalie** Planeje e execute as pequenas etapas em sequência. Para flows, concentre a avaliação na reprodução local do flow completo depois da implementação; testes não são uma barreira para passar à próxima etapa ou skill.
 3. **Planejamento.** O planejamento deve ter no máximo 1 minuto.
 4. **Execução.** A execução deve alterar no máximo 5 arquivos por vez.
 5. **Avaliação.** Cada etapa deve ser avaliada e comitada em branchs separadas.
@@ -56,6 +56,15 @@ Se nenhuma skill se aplicar, apresente soluções baseado no conteúdo deste arq
 - **Honestidade.** Se não souber algo, diga. Não invente recursos, links ou informações da .
 - **Foco.** A prioridade é o usuário final.
 - **Respeito.** Avalie o nível da solicitação de acordo com a complexidade entre: QUALQUER UM FARIA; SIMPLES; TEM QUE PENSAR; SÓ IA FAZ.
+
+## Validação de flows
+
+- Não crie nem altere arquivos de testes unitários, de integração, fixtures ou mocks, salvo quando o usuário solicitar isso explicitamente.
+- Não teste cada arquivo, etapa ou entrega intermediária antes de passar para a próxima etapa ou skill.
+- Não use testes unitários, scripts temporários, compilação isolada ou simulações como critério de aceite de um flow.
+- Depois de concluir todas as alterações planejadas, reproduza o flow completo localmente pelo seu orquestrador, usando o ambiente e o perfil de debug do projeto.
+- Ao encontrar uma falha na execução, relate o erro e a causa provável, aplique a menor correção dentro do escopo e execute novamente. Repita até o flow alcançar estado terminal sem falhas.
+- Se o ambiente impedir a reprodução local, relate o impedimento. Não substitua a execução do flow pela criação de testes.
 
 ## Execução local
 

@@ -38,9 +38,9 @@ Usar somente após confirmar que Requests não atende porque a página depende d
 
 Não tentar contornar CAPTCHA, controles de acesso ou bloqueios anti-automação. Encaminhar esse impedimento ao planejamento.
 
-## Observabilidade e testes
+## Observabilidade na execução local
 
 - Registrar recorte, página, tentativas, duração, bytes e registros coletados.
-- Usar fixtures ou respostas controladas em testes; não depender da fonte externa em testes unitários.
-- Simular timeout, `429`, `5xx`, payload inválido, página vazia e mudança de seletor.
-- Confirmar que retry não duplica objetos Bronze e que falhas terminam o flow com estado de falha.
+- Não criar fixtures, mocks ou arquivos de testes para validar a extração, salvo solicitação explícita do usuário.
+- Não simular timeout, `429`, `5xx`, payload inválido, página vazia ou mudança de seletor como etapa obrigatória.
+- Validar a extração durante a reprodução local do flow completo. Quando ocorrer uma falha real, diagnosticar pelos logs, corrigir e executar o flow novamente até terminar sem falhas.

@@ -10,10 +10,10 @@ Construir flows Prefect aderentes à arquitetura medalhão do projeto, com contr
 ## Preparar o trabalho
 
 1. Ler `AGENTS.md`.
-2. Inspecionar o pipeline, as abstrações de `utils/`, o `prefect.yaml`, as dependências e os testes relacionados.
+2. Inspecionar o pipeline, as abstrações de `utils/`, o `prefect.yaml` e as dependências relacionadas.
 3. Confirmar que a arquitetura necessária já foi definida. Encaminhar decisões transversais ainda abertas para `$arquiteto-software` e decisões de modelagem ou persistência para a skill de Arquiteto de Banco de Dados.
 4. Definir o resultado observável, a fonte, o volume, a frequência, o recorte de reprocessamento, o consumidor e as camadas afetadas.
-5. Planejar etapas com no máximo cinco arquivos, cada uma acompanhada de validação.
+5. Planejar etapas com no máximo cinco arquivos, sem criar barreiras de teste entre etapas ou skills.
 
 Não iniciar implementação enquanto estiverem indefinidos contratos que alterem particionamento, idempotência, schema, disponibilidade ou segurança.
 
@@ -54,7 +54,7 @@ Não iniciar implementação enquanto estiverem indefinidos contratos que altere
    - falha ao resolver `lakekeeper`: endpoint interno do Docker usado por uma execução no host;
    - `WinError 10013` em API externa ou erro ao gravar em `~/.prefect`: restrição do sandbox, devendo solicitar execução fora dele;
    - erro de serialização do cache envolvendo a instância da pipeline: registrar separadamente se a task continuar e identificar a exceção que efetivamente definiu o estado final.
-10. Acompanhar Bronze, Prata/Ouro e orquestrador até um estado terminal. Em caso de erro real do flow ou da configuração versionada, planejar a menor correção e pedir aprovação antes de aplicá-la.
+10. Acompanhar Bronze, Prata/Ouro e orquestrador até um estado terminal. Em caso de erro real do flow ou da configuração versionada, aplicar a menor correção dentro do escopo e executar novamente. Repetir até o flow terminar sem falhas.
 
 ## Escolher a extração
 
@@ -92,11 +92,14 @@ pipelines/<mini_projeto>/<flow>/
 - Ler [publicacao.md](references/publicacao.md) antes de alterar SQL, schema, particionamento, catálogo, snapshots ou escrita Iceberg.
 - Garantir que repetir o mesmo recorte não duplique registros nem substitua partições fora do escopo.
 
-## Validar cada etapa
+## Validar o flow localmente
 
-2. Validar ao menos: sucesso, resposta vazia, falha transitória, contrato inválido e reprocessamento do mesmo recorte.
-3. Em Selenium, validar encerramento do driver também em falha e ausência de esperas fixas frágeis.
-4. Em Iceberg, conferir schema, partições, quantidade de registros, snapshot criado e preservação dos recortes não processados.
-5. Executar as verificações de qualidade definidas no projeto e revisar o diff completo.
+1. Não criar nem alterar arquivos de testes, fixtures ou mocks, salvo solicitação explícita do usuário.
+2. Não executar testes unitários, testes isolados, scripts temporários, compilação isolada ou simulações antes de passar para outra etapa ou skill.
+3. Concluir a implementação planejada e então executar localmente o orquestrador do flow completo com os serviços obrigatórios ativos.
+4. Acompanhar a execução real de Bronze, Prata/Ouro e orquestrador. Usar os logs, estados do Prefect e artefatos publicados para localizar erros.
+5. Corrigir somente a causa concreta encontrada e reproduzir o flow novamente. Repetir o ciclo até uma execução completa sem falhas.
+6. Considerar a execução local bem-sucedida como o teste do flow. Em Iceberg, confirmar na própria execução o schema, a quantidade de registros e o snapshot publicado quando essas evidências estiverem disponíveis.
+7. Se infraestrutura, credenciais ou serviços indisponíveis impedirem a reprodução, registrar o bloqueio e não substituir o flow por testes artificiais.
 
-Entregar o comportamento implementado, arquivos alterados, comandos e resultados de validação e qualquer decisão que precise voltar ao planejamento.
+Entregar o comportamento implementado, arquivos alterados, comando e resultado da execução local e qualquer decisão que precise voltar ao planejamento.
