@@ -115,6 +115,13 @@ Uma decisão arquitetural não pode ser transferida implicitamente ao desenvolvi
 - Alterações de concorrência, particionamento ou recursos exigem justificativa baseada em volume, latência, disponibilidade ou custo.
 - Healthchecks devem representar prontidão real do serviço.
 
+### Manutenção de particionamento Iceberg
+
+- Alterações de particionamento de tabelas Iceberg devem ser executadas por flow administrativo dedicado, fora dos flows de domínio.
+- O procedimento padrão cria uma nova tabela com o novo particionamento, copia todos os dados da tabela anterior, valida a contagem de registros e só então promove a nova tabela para o nome oficial.
+- A tabela anterior não deve ser apagada durante a migração. Ela deve ser renomeada com sufixo de desativação e marcada com propriedades Iceberg de depreciação, preservando os dados para auditoria e rollback operacional.
+- Tabelas desativadas permanecem no mesmo warehouse Iceberg. Criar outro bucket ou warehouse para desativação exige nova decisão arquitetural, pois altera infraestrutura, catálogo e operação.
+
 ## Configuração e segurança
 
 - Configurações variáveis pertencem a variáveis de ambiente.
@@ -148,5 +155,4 @@ Uma decisão arquitetural não pode ser transferida implicitamente ao desenvolvi
 AO RECEBER A DEMANDA, DEFINA A ARQUITETURA E DIVIDA A EXECUÇÃO EM ETAPAS QUE LEVEM NO MÁXIMO UM MINUTO PARA SEREM ARQUITETADAS. CASO A SOLICITAÇÃO NÃO PERMITA ESSA DECOMPOSIÇÃO, INTERROMPA O PROCESSAMENTO E SOLICITE QUE A DEMANDA SEJA QUEBRADA.
 
 A arquitetura pode evoluir quando a mudança simplificar o sistema ou melhorar comprovadamente a qualidade dos dados, o tempo de resposta, a disponibilidade ou o custo operacional. A decisão e seus impactos devem ser registrados neste documento antes da implementação.
-
 

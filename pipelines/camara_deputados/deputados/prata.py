@@ -11,49 +11,49 @@ except ImportError:  # pragma: no cover
 
 
 class PipePrata(Pipeline):
-    """Consolida os arquivos bronze em uma tabela Iceberg particionada."""
+    """Consolida uma legislatura em uma partição da tabela Iceberg."""
 
     def __init__(self):
-        super().__init__(
-            Info.PROJECT_NAME,
-            Info.PIPELINE_NAME,
-            "prata"
-        )
+        super().__init__(Info.PROJECT_NAME, Info.PIPELINE_NAME, "prata")
 
     @flow(
         name="camara_deputados_prata",
-        description="Lê os JSONs bronze e publica um snapshot Iceberg.",
-        log_prints=True
+        description="Publica os deputados particionados por idLegislatura.",
+        log_prints=True,
     )
-    def execute(self, year: int):
-        self.log.info(f"[PRATA] INICIANDO CONSOLIDAÇÃO DOS DEPUTADOS DE {year}")
+    def execute(self, id_legislatura: int) -> dict:
+        self.log.info(
+            "[PRATA] INICIANDO CONSOLIDAÇÃO DA LEGISLATURA %s", id_legislatura
+        )
+        snapshot = self._consolidar_legislatura(id_legislatura)
+        self.log.info("[PRATA] SNAPSHOT ICEBERG PUBLICADO: %s", snapshot)
+        return snapshot
 
-        snapshot = self._consolidar_ano(year)
-        self.log.info(f"[PRATA] SNAPSHOT ICEBERG PUBLICADO: {snapshot}")
-
-        self.log.info(f"[PRATA] FINALIZANDO CONSOLIDAÇÃO DOS DEPUTADOS DE {year}")
-
-    @task
-    def _consolidar_ano(self, year: int) -> dict:
-        subpath = f"ano={year}"
+    @task(name="consolidar_legislatura")
+    def _consolidar_legislatura(self, id_legislatura: int) -> dict:
         self._read_dataframe(
             nome_tabela="deputados",
-            subpath=subpath,
+            subpath=f"idLegislatura={id_legislatura}",
             schema=Info.SCHEMA_BRONZE,
-            camada="bronze"
+            camada="bronze",
         )
-        self.duckdb_conn.execute(
-            "ALTER TABLE deputados ADD COLUMN ano_referencia INTEGER"
-        )
-        self.duckdb_conn.execute(
-            "UPDATE deputados SET ano_referencia = ?",
-            [year]
-        )
+
+        ids_recebidos = {
+            int(linha[0])
+            for linha in self.duckdb_conn.execute(
+                "SELECT DISTINCT idLegislatura FROM deputados"
+            ).fetchall()
+        }
+        if ids_recebidos != {id_legislatura}:
+            raise ValueError(
+                "A Bronze contém deputados fora da legislatura solicitada: "
+                f"esperada={id_legislatura}, recebidas={sorted(ids_recebidos)}"
+            )
 
         return self._save_iceberg(
             tabela_origem="deputados",
             tabela_destino="deputados",
             schema=Info.SCHEMA_PRATA,
-            partition=["ano_referencia"],
-            replace_by={"ano_referencia": year}
+            partition=["idLegislatura"],
+            replace_by={"idLegislatura": id_legislatura},
         )

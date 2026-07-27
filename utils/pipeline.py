@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from io import BytesIO, SEEK_END
 from typing import BinaryIO, Optional, Union
 import duckdb
@@ -422,6 +423,159 @@ class Pipeline(Conexoes):
     """Retorna o namespace SQL que identifica a camada e o projeto."""
 
     return self._sql_identifier(f"{camada or self.camada}_{self.project_name}")
+
+
+  def _iceberg_table_identifier(self,
+                                tabela: str,
+                                camada: Optional[str] = None) -> str:
+    """Retorna o identificador completo de uma tabela Iceberg."""
+
+    catalog_name = self._attach_iceberg_catalog()
+    return ".".join((
+        self._sql_identifier(catalog_name),
+        self._iceberg_namespace(camada),
+        self._sql_identifier(tabela)
+    ))
+
+
+  def _iceberg_table_columns(self,
+                             tabela: str,
+                             camada: Optional[str] = None) -> list[str]:
+    """Lista as colunas registradas para uma tabela Iceberg no catÃ¡logo."""
+
+    catalog_name = self._attach_iceberg_catalog()
+    namespace_name = f"{camada or self.camada}_{self.project_name}"
+    resultado = self.duckdb_conn.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_catalog = ? AND table_schema = ? AND table_name = ? "
+        "ORDER BY ordinal_position",
+        [catalog_name, namespace_name, tabela]
+    )
+    return [linha[0] for linha in resultado.fetchall()]
+
+
+  def _set_iceberg_table_properties(self,
+                                    tabela: str,
+                                    properties: dict[str, str],
+                                    camada: Optional[str] = None) -> None:
+    """Define propriedades operacionais em uma tabela Iceberg."""
+
+    if not properties:
+      return
+
+    tabela_iceberg = self._iceberg_table_identifier(tabela, camada)
+    propriedades = ", ".join(
+        f"{self._sql_literal(chave)}: {self._sql_literal(valor)}"
+        for chave, valor in properties.items()
+    )
+    self.duckdb_conn.execute(
+        f"CALL set_iceberg_table_properties("
+        f"{tabela_iceberg}, MAP {{{propriedades}}})"
+    )
+
+
+  def _reparticionar_tabela_iceberg(self,
+                                    tabela: str,
+                                    novas_particoes: list[str],
+                                    camada: Optional[str] = None,
+                                    motivo: Optional[str] = None) -> dict:
+    """Recria uma tabela Iceberg com novo particionamento preservando os dados."""
+
+    if not novas_particoes:
+      raise ValueError("Informe ao menos uma coluna para o novo particionamento")
+
+    camada_destino = camada or self.camada
+    for identificador in [tabela, *novas_particoes]:
+      self._sql_identifier(identificador)
+
+    colunas = self._iceberg_table_columns(tabela, camada_destino)
+    if not colunas:
+      raise ValueError(
+          f"Tabela Iceberg nÃ£o encontrada: "
+          f"{camada_destino}_{self.project_name}.{tabela}"
+      )
+
+    colunas_invalidas = [
+        coluna for coluna in novas_particoes
+        if coluna not in colunas
+    ]
+    if colunas_invalidas:
+      raise ValueError(
+          f"Colunas de partiÃ§Ã£o inexistentes em {tabela}: "
+          f"{', '.join(colunas_invalidas)}"
+      )
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    tabela_reparticionada = f"{tabela}__repartition_{timestamp}"
+    tabela_desativada = f"{tabela}__deprecated_{timestamp}"
+    origem = self._iceberg_table_identifier(tabela, camada_destino)
+    reparticionada = self._iceberg_table_identifier(
+        tabela_reparticionada,
+        camada_destino
+    )
+
+    particoes = ", ".join(
+        self._sql_identifier(coluna) for coluna in novas_particoes
+    )
+    total_origem = self.duckdb_conn.execute(
+        f"SELECT COUNT(*) FROM {origem}"
+    ).fetchone()[0]
+
+    self.duckdb_conn.execute(f"DROP TABLE IF EXISTS {reparticionada}")
+    self.duckdb_conn.execute(
+        f"CREATE TABLE {reparticionada} "
+        f"PARTITIONED BY ({particoes}) "
+        f"WITH ('format-version' = '2') AS "
+        f"SELECT * FROM {origem}"
+    )
+
+    total_reparticionada = self.duckdb_conn.execute(
+        f"SELECT COUNT(*) FROM {reparticionada}"
+    ).fetchone()[0]
+    if total_origem != total_reparticionada:
+      self.duckdb_conn.execute(f"DROP TABLE IF EXISTS {reparticionada}")
+      raise ValueError(
+          "Reparticionamento abortado por divergÃªncia de contagem: "
+          f"origem={total_origem}, nova={total_reparticionada}"
+      )
+
+    self.duckdb_conn.execute(
+        f"ALTER TABLE {origem} RENAME TO {self._sql_identifier(tabela_desativada)}"
+    )
+    self.duckdb_conn.execute(
+        f"ALTER TABLE {reparticionada} RENAME TO {self._sql_identifier(tabela)}"
+    )
+    self._set_iceberg_table_properties(
+        tabela=tabela_desativada,
+        camada=camada_destino,
+        properties={
+            "deprecated": "true",
+            "deprecated_at": timestamp,
+            "replacement_table": tabela,
+            "deprecation_reason": (
+                motivo or "Tabela substituÃ­da por novo particionamento"
+            ),
+        }
+    )
+
+    snapshot = self.duckdb_conn.execute(
+        f"SELECT * FROM iceberg_snapshots({origem}) "
+        f"ORDER BY timestamp_ms DESC LIMIT 1"
+    )
+    colunas_snapshot = [descricao[0] for descricao in snapshot.description]
+    valores_snapshot = snapshot.fetchone()
+    return {
+        "camada": camada_destino,
+        "projeto": self.project_name,
+        "tabela": tabela,
+        "tabela_desativada": tabela_desativada,
+        "novas_particoes": novas_particoes,
+        "registros_copiados": total_reparticionada,
+        "snapshot": (
+            dict(zip(colunas_snapshot, valores_snapshot))
+            if valores_snapshot else {}
+        ),
+    }
 
 
   def _iceberg_snapshots(self,

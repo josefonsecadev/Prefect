@@ -30,6 +30,21 @@
         "ICEBERG_CATALOG_ENDPOINT": "http://localhost:8181/catalog",
         "PREFECT_API_URL": "http://127.0.0.1:4200/api"
       }
+    },
+    {
+      "name": "camara_deputados_legislaturas",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "subProcess": false,
+      "module": "pipelines.camara_deputados.legislaturas.orquestrador",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "MINIO_ENDPOINT": "localhost:9000",
+        "ICEBERG_CATALOG_ENDPOINT": "http://localhost:8181/catalog",
+        "PREFECT_API_URL": "http://127.0.0.1:4200/api"
+      }
     }
 
 

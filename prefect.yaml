@@ -22,6 +22,31 @@ deployments:
       name: local
     schedule: null
     parameters:
-      year: null
+      ano_inicial: null
+      ano_final: null
     tags:
       - camara_deputados
+
+  - name: camara_deputados_legislaturas
+    entrypoint: pipelines/camara_deputados/legislaturas/orquestrador.py:executar_pipeline_legislaturas
+    work_pool:
+      name: local
+    schedule: null
+    parameters: {}
+    tags:
+      - camara_deputados
+
+  - name: manutencao_iceberg_particionamento
+    entrypoint: pipelines/manutencao/iceberg_particionamento/orquestrador.py:executar_reparticionamento_iceberg
+    work_pool:
+      name: local
+    schedule: null
+    parameters:
+      camada: null
+      projeto: null
+      tabela: null
+      novas_particoes: []
+      motivo: null
+    tags:
+      - manutencao
+      - iceberg
