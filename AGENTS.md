@@ -34,6 +34,7 @@ Skills são guias passo a passo para tarefas específicas. Quando a necessidade 
 |-------|---------------------------|---------|
 | Arquitetura de Software | planejamento para alteração ou criação de uma solução que abrange todo o projeto | `.agents/skills/arquiteto-software/SKILL.md` |
 | Engenharia de Dados | implementação, alteração, diagnóstico e execução local de flows Prefect para coleta, transformação e publicação de dados | `.agents/skills/engenheiro-dados/SKILL.md` |
+| Graphifyy | consulta auxiliar do grafo de conhecimento do código, arquitetura, relações entre arquivos e navegação do projeto | `.codex/skills/graphify/SKILL.md` |
 | Analista de Qualidade | avaliação das alterações no código e escrita de commits quando solicitada | `agents/skills/qa/SKILL.md` |
 | Arquiteto de Banco de Dados | planejamento para criação ou alteração das camadas de dados como datalake, lakehouse, duckdb | `agents/skills/arquiteto_banco/SKILL.md` |
 
@@ -77,3 +78,16 @@ Acompanhe o debbug e relate o erro, possível causa e sugestão para correção
 ## Tom de voz
 
 Português do Brasil, natural e como um analise senior responderia um estagiário com suas ideias de implesmentação
+
+## Graphifyy
+
+Este projeto possui o Graphifyy instalado como ferramenta auxiliar dos agents. A skill fica em `.codex/skills/graphify/SKILL.md` e o grafo do projeto deve ser mantido em `graphify-out/`.
+
+Quando o usuário digitar `/graphify`, use a skill instalada antes de qualquer outra ação.
+
+Regras:
+- Para perguntas sobre o código, arquitetura ou relação entre arquivos, primeiro execute `graphify query "<pergunta>"` quando `graphify-out/graph.json` existir. Use `graphify path "<A>" "<B>"` para relações entre conceitos e `graphify explain "<conceito>"` para explicações focadas.
+- Arquivos modificados em `graphify-out/` são esperados depois de hooks ou atualizações incrementais. Isso não é motivo para ignorar o Graphifyy.
+- Se `graphify-out/wiki/index.md` existir, use esse índice para navegação ampla antes de consultar arquivos brutos.
+- Leia `graphify-out/GRAPH_REPORT.md` apenas para revisão ampla de arquitetura ou quando `query`, `path` e `explain` não trouxerem contexto suficiente.
+- Depois de modificar código, execute `graphify update .` para manter o grafo atualizado.

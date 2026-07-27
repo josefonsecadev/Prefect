@@ -95,6 +95,12 @@ storage/
 flows/**/*.pyc
 
 # ==============================
+# Graphifyy
+# ==============================
+# Grafo, relatorios e caches gerados localmente pela skill.
+graphify-out/
+
+# ==============================
 # Editor / IDE
 # ==============================
 # .vscode/
