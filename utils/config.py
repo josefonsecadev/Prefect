@@ -12,6 +12,8 @@ class ConfigError(RuntimeError):
 class Config:
     def __init__(self):
         load_dotenv()
+        credentials_file = os.getenv("POLARIS_CREDENTIALS_FILE", ".prefect/runtime/writer.env")
+        load_dotenv(credentials_file, override=True)
         self.ambiente = os.getenv("AMBIENTE", "local")
         self.s3_endpoint = self._get_required_env("S3_ENDPOINT")
         if "://" in self.s3_endpoint or "/" in self.s3_endpoint:

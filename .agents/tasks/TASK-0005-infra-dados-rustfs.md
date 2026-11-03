@@ -65,6 +65,11 @@ processing. Limites de memória iniciais são hipóteses a medir. Engine Docker 
 host ainda não responde; nenhuma prontidão ou persistência foi alegada. Bootstrap
 API será entregue na próxima etapa; task não concluída antes do aceite executável.
 
+E02/E03 implementadas em `infra/bootstrap.py`: API com timeout e erros sem segredos,
+criação idempotente de catálogo/papéis/namespaces e credenciais geradas em runtime.
+Perda do arquivo de credenciais exige recuperação explícita; não rotacionar em
+silêncio. Prontidão real e grants ainda precisam da execução da stack.
+
 - [ ] RustFS e Polaris padrão, com persistência e inicialização idempotente.
 - [ ] Ambiente nasce vazio sem depender de MinIO, Lakekeeper ou seus dados.
 - [ ] Credenciais separadas e dependências corretas; pronto para executar flows.
