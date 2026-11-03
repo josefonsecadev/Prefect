@@ -13,10 +13,18 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | [TASK-0003](TASK-0003-contratos-rustfs.md) | Fechar contratos RustFS + Polaris + Trino | infraestrutura | criacao | P2 | pronta | E01: versões e conexões do ambiente novo |
 | [TASK-0004](TASK-0004-codigo-s3-rustfs.md) | Adaptar código para RustFS e Polaris | dados | melhoria | P2 | backlog | E01 após TASK-0003 |
 | [TASK-0005](TASK-0005-infra-dados-rustfs.md) | Provisionar RustFS e Polaris do zero | docker | criacao | P2 | backlog | E01 após TASK-0004 |
-| [TASK-0006](TASK-0006-validar-documentar-rustfs.md) | Validar flows e consolidar RustFS como padrão | pipelines | manutencao | P2 | backlog | E01 após TASK-0005 |
-| [TASK-0007](TASK-0007-acesso-sql-ouro.md) | Planejar engine SQL e catálogo para acesso à Ouro | infraestrutura | investigacao | P2 | pronta | E01: comparar engines e catálogos, incluindo alternativas Apache |
+| [TASK-0006](TASK-0006-validar-documentar-rustfs.md) | Validar flows no ambiente novo RustFS + Polaris | pipelines | manutencao | P2 | backlog | E01 após TASK-0005 |
+| [TASK-0007](TASK-0007-acesso-sql-ouro.md) | Escolher arquitetura de acesso SQL à Ouro | infraestrutura | investigacao | P2 | concluida | Trino + Polaris aprovados; execução nas tasks |
+| [TASK-0008](TASK-0008-implantar-trino.md) | Implantar Trino com Polaris e RustFS | infraestrutura | criacao | P2 | backlog | E01 após TASK-0003/0005 |
+| [TASK-0009](TASK-0009-produto-ouro-consumo.md) | Publicar Ouro e validar consumo pelo Trino | dados | criacao | P2 | backlog | E01 após TASK-0003; definir produto Ouro |
 
 Demandas registradas a partir das solicitações do usuário; classificação secundária no arquivo de cada tarefa.
+
+Arquitetura aprovada: **Prefect + DuckDB + RustFS + Iceberg + Apache Polaris + Trino**.
+Instalação nova de dados e catálogo: sem cópia, importação ou compatibilidade com
+registros antigos. Implementação ainda pendente. Sequência principal: 0003 → 0004 →
+0005 → 0006; Trino (0008) pode ser configurado após 0005. Produto Ouro/aceite completo
+(0009) exige 0006 e 0008; seu contrato de negócio pode ser definido após 0003.
 
 ## Classificação
 

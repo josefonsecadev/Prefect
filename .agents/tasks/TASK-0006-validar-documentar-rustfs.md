@@ -1,116 +1,91 @@
-# TASK-0006 — Validar flows e consolidar RustFS como padrão
+# TASK-0006 — Validar flows no ambiente novo RustFS + Polaris
 
 ## Identificação
 
 - Status: backlog
 - Categoria: pipelines
 - Tipo: manutencao
-- Etiquetas: [rustfs, prefect, duckdb, iceberg, lakekeeper, documentacao, agentes]
+- Etiquetas: [rustfs, polaris, prefect, duckdb, iceberg, documentacao, agentes]
 - Prioridade: P2
 - Complexidade: TEM QUE PENSAR
-- Origem: usuário exige manter todo o restante funcional após a migração.
+- Origem: nova arquitetura aprovada; comprovar funcionamento sem dados/catálogos legados.
 - Criada em: 2026-11-03
 - Atualizada em: 2026-11-03
-- Dependências: TASK-0005 concluída e código da TASK-0004 disponível.
+- Dependências: TASK-0005 concluída.
 
-## Objetivo e contratos
+## Objetivo e escopo
 
-Comprovar operação ponta a ponta no RustFS, preservar dados antigos e atualizar
-documentação e instruções para o novo padrão. Usar Engenharia de Dados para flows
-e QA para a avaliação. Não alegar funcionamento completo somente com containers online.
-Referências: `AGENTS.md`, `prefect.yaml`, `.vscode/launch.json`, `README.md`,
-`.agents/knowledge/planning.md`, skills de arquitetura e engenharia de dados.
-Nenhum arquivo de teste, fixture, mock ou script de simulação deve ser criado.
+Validar publicação nova de Bronze/Prata e manutenção Iceberg com DuckDB, Polaris e
+RustFS. Não comparar com dados antigos nem exigir preservação de snapshots legados.
+Snapshots criados no ambiente novo devem funcionar normalmente.
+Usar Engenharia de Dados, perfil debug e execução completa pelo orquestrador conforme
+AGENTS.md. Sem arquivos de testes, fixtures, mocks ou simulações. Consumo Ouro/Trino
+é validado em TASK-0009; esta tarefa não encerra a entrega da plataforma inteira.
 
 ## Etapas
 
-Cada etapa reserva este registro e índice; no máximo cinco arquivos e 5.000 tokens
-estimados, incluindo leitura e avaliação. Tempo de execução do flow não é tokens.
-Se diagnóstico/correção crescer, registrar a falha e dividir a continuação antes
-de ultrapassar o limite. Não testar arquivo por arquivo; executar flows completos.
+Cada etapa inclui tarefa e índice; até três outros arquivos, cinco no total.
+Estimativas incluem contexto e avaliação, até 5.000 tokens por etapa. Se diagnóstico
+ou correção crescer, registrar falha/causa e dividir continuação antes do limite.
 
-### E01 — Legislaturas e deputados completos
+### E01 — Legislaturas e deputados
 
-- Status: backlog.
-- Estimativa: 4.000 tokens.
-- Arquivos: tarefa e índice; se necessário até três arquivos de correção dentro do escopo.
-- Ações: usar ambiente e perfil debug do projeto, confirmando interpretador existente
-  e endpoints host/container. Executar orquestrador de legislaturas até Completed;
-  depois deputados para recorte explícito compatível com legislaturas publicadas.
-- Evidências: comandos/perfis, parâmetros, run IDs, estado terminal, objetos Bronze,
-  tabelas Prata, schema, contagens e snapshot. Comprovar objetos no RustFS e ausência
-  de dependência do servidor MinIO. Comparar tabelas/snapshots antigos preservados.
-- Falhas: registrar erro, causa provável, menor correção e repetir flow completo.
+- Status: backlog; estimativa: 4.000 tokens.
+- Arquivos: controle e até três correções dentro do escopo.
+- Executar legislaturas completo e depois deputados em recorte explícito. Confirmar
+  interpretador/perfil real e endpoints corretos do host; não inventar caminho debug.
+- Evidência: parâmetros, comandos/perfis, run IDs, Completed, objetos Bronze,
+  tabelas Prata, schemas, contagens e snapshots novos no Polaris/RustFS.
+- Em falhas, registrar erro/causa provável, aplicar menor correção e repetir flow completo.
 - Resultado: pendente.
 
-### E02 — Despesas e reprocessamento
+### E02 — Despesas e idempotência
 
-- Status: backlog; depende de E01.
-- Estimativa: 4.000 tokens.
-- Arquivos: tarefa e índice; até três correções justificadas, se necessárias.
-- Ações: executar despesas completo para ano explícito; repetir os mesmos recortes
-  de despesas e deputados, conferindo ausência de duplicatas e preservação dos
-  recortes não processados. Conferir snapshots e leitura de versão anterior.
-- Evidências: estados terminais, run IDs, contagens por recorte antes/depois,
-  snapshots e exemplos de leitura dos dados preservados. Exercitar multipart/range
-  pelas operações reais dos flows quando o volume permitir; registrar cobertura real.
+- Status: backlog; depende de E01; estimativa: 4.000 tokens.
+- Arquivos: controle e até três correções.
+- Executar despesas completo para ano explícito; repetir mesmos recortes de despesas
+  e deputados sem duplicação e sem alterar recortes externos. Ler snapshot anterior
+  criado no novo ambiente. Registrar cobertura real de operações multipart/range.
+- Evidência: estados terminais, run IDs, contagens por recorte e snapshots.
 - Resultado: pendente.
 
-### E03 — Flow administrativo e retomada da stack
+### E03 — Manutenção e persistência
 
-- Status: backlog; depende de E02.
-- Estimativa: 4.000 tokens.
-- Arquivos: tarefa e índice; até três arquivos para correções dentro do escopo.
-- Ações: executar orquestrador de manutenção de particionamento em tabela dedicada
-  de validação com dados derivados de recorte existente, preservando tabelas de
-  negócio. Usar parâmetros reais do flow, registrar criação e destino da tabela;
-  não criar scripts de simulação e não executar migração destrutiva na tabela oficial.
-- Conferir contagens, novo particionamento, tabela anterior preservada e leitura.
-  Reiniciar serviços sem remover volumes, repetir bootstrap sem duplicar warehouse
-  e comprovar leitura persistente. Validar deployments pelo worker além do debug.
-- Evidência: run ID terminal sem falha, consultas, persistência e idempotência do bootstrap.
-- Resultado: pendente; se ambiente impedir, registrar bloqueio, sem substituir por testes.
+- Status: backlog; depende de E02; estimativa: 4.000 tokens.
+- Arquivos: controle e até três correções.
+- Executar flow administrativo de particionamento em tabela dedicada com dados reais
+  derivados de um recorte; preservar tabelas de negócio. Conferir contagens,
+  particionamento e tabela anterior preservada segundo contrato do próprio flow.
+- Reiniciar stack sem remover volumes novos; bootstrap não duplica catálogo,
+  identidades ou grants. Conferir leitura persistente e execução via deployment/worker.
+- Evidência: run ID Completed, consultas, reinicialização e idempotência do bootstrap.
+- Resultado: pendente; impedimento de ambiente bloqueia aceite, sem substituir por testes.
 
-### E04 — Documentação e knowledge de arquitetura
+### E04 — Documentação do ambiente novo
 
-- Status: backlog; depende de E03.
-- Estimativa: 3.500 tokens.
+- Status: backlog; depende de E03; estimativa: 3.000 tokens.
 - Arquivos: `README.md`, `.agents/knowledge/planning.md`, `.agents/knowledge/dev_senior.md`
   quando afetado + controle (até cinco).
-- Ações: atualizar stack, diagrama textual, setup, endpoints, variáveis e recuperação;
-  converter descrição de migração pendente em arquitetura implementada somente com
-  evidências de E01–E03. Explicar SDK MinIO como cliente S3 se permanecer.
-- Evidência: instruções coerentes com arquivos efetivamente implantados; sem segredos.
+- Atualizar setup, endpoints, OAuth2, persistência e recuperação do novo ambiente.
+  Marcar Trino/Ouro como pendentes enquanto TASK-0008/0009 não concluírem.
+  Documentar SDK MinIO como cliente S3 se permanecer, sem confundir com servidor.
+- Evidência: instruções refletem configuração implementada e não contêm segredos.
 - Resultado: pendente.
 
-### E05 — Skills e encerramento
+### E05 — Instruções e grafo
 
-- Status: backlog; depende de E04.
-- Estimativa: 3.000 tokens.
-- Arquivos: `.agents/skills/arquiteto-software/SKILL.md`,
-  `.agents/skills/engenheiro-dados/SKILL.md`, `AGENTS.md` + controle (cinco).
-- Ações: atualizar referências operacionais MinIO para RustFS/S3 quando aplicável,
-  mantendo regras das camadas. Conferir referências residuais: históricas e nome
-  do SDK podem permanecer; nenhuma configuração padrão deve depender do servidor antigo.
-  Se referências de apoio exigirem outros arquivos, dividir em nova etapa.
-- Após alterações de código anteriores, executar `graphify update .` conforme AGENTS.md;
-  arquivos gerados contam no limite de sua etapa. Se exceder, criar etapa dedicada
-  de atualização do grafo antes de encerrar; não inventar grafo atualizado.
-- Evidência: QA do conjunto e links; commits por etapa/branch conforme AGENTS.md,
-  respeitando autorização de envio. Nenhuma remoção dos dados antigos nesta tarefa.
-- Resultado: pendente.
+- Status: backlog; depende de E04; estimativa: 3.000 tokens.
+- Arquivos: skills de Arquitetura e Engenharia de Dados, `AGENTS.md` + controle (cinco).
+- Atualizar referências MinIO/Lakekeeper operacionais para RustFS/Polaris; preservar
+  nomes históricos quando necessário. Se referências auxiliares exigirem mais arquivos,
+  dividir etapa. Executar atualização do Graphify após código conforme AGENTS.md;
+  saídas contam no limite e exigem etapa própria antes do encerramento se necessário.
+- Evidência: QA de instruções, diff e estado real do grafo; resultado: pendente.
 
-## Critérios de aceite
+## Aceite, retomada e histórico
 
-- [ ] Todos os quatro orquestradores atingiram estado terminal sem falha no novo storage.
-- [ ] Reprocessamento sem duplicação, recortes não afetados preservados e snapshots legíveis.
-- [ ] Ambiente novo, ambiente migrado, reinicialização e deployments operacionais.
-- [ ] RustFS padrão no setup, código e agente; demais serviços e contratos preservados.
-- [ ] Evidências verificáveis registradas; impedimentos reais impedem conclusão.
-
-## Retomada e histórico
-
-- Próxima ação: depois da TASK-0005, executar E01.
-- Feito: planejamento somente; nenhuma execução alegada.
-- Riscos: indisponibilidade das fontes, ambiente debug e compatibilidade exata das versões.
-- 2026-11-03 — plano de validação completo registrado a pedido do usuário.
+- [ ] Quatro orquestradores completos sem falhas na nova base.
+- [ ] Reprocessamento idempotente, snapshots novos e reinicialização comprovados.
+- [ ] Documentação/instruções coerentes; pendência de Trino/Ouro explícita.
+- Próxima ação: E01 após TASK-0005. Nenhuma execução já realizada.
+- 2026-11-03 — escopo atualizado: validação de ambiente novo, sem preservação legada.
