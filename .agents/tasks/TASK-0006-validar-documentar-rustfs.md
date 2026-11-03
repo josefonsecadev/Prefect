@@ -84,6 +84,11 @@ ou correção crescer, registrar falha/causa e dividir continuação antes do li
 
 ## Aceite, retomada e histórico
 
+E04 antecipada para documentar o ambiente configurado e suas limitações reais.
+README distingue código entregue de aceites executáveis ainda pendentes. Setup
+local disponível; Docker backend falhou ao iniciar e ao reiniciar, e iniciar
+com.docker.service foi recusado por permissões. E01–E03 não executadas ainda.
+
 - [ ] Quatro orquestradores completos sem falhas na nova base.
 - [ ] Reprocessamento idempotente, snapshots novos e reinicialização comprovados.
 - [ ] Documentação/instruções coerentes; pendência de Trino/Ouro explícita.
