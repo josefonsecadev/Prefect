@@ -1,5 +1,6 @@
 """Provisiona catálogo e identidades do ambiente novo sem imprimir segredos."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -90,7 +91,83 @@ class Polaris:
         path = f"/api/management/v1/catalogs/{catalog}/catalog-roles/{role}/grants"
         existing = self.call("GET", path)["grants"]
         if grant not in existing:
-            self.call("PUT", path, grant)
+            self.call("PUT", path, {"grant": grant})
+
+
+def trino_configuration(runtime):
+    """Gera configuração local, hash de senha e certificado, todos fora do Git."""
+    from datetime import datetime, timedelta, timezone
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
+
+    folder = runtime / "trino"
+    (folder / "catalog").mkdir(parents=True, exist_ok=True)
+    user = os.getenv("TRINO_USER", "analista")
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", user):
+        raise RuntimeError("TRINO_USER inválido")
+    salt = os.urandom(16)
+    digest = hashlib.pbkdf2_hmac("sha256", required("TRINO_PASSWORD").encode(), salt, 210000)
+    files = {
+        "password.db": f"{user}:210000:{salt.hex()}:{digest.hex()}\n",
+        "password-authenticator.properties": "password-authenticator.name=file\nfile.password-file=/etc/trino/password.db\n",
+        "node.properties": "node.environment=local\nnode.id=lakehouse-local\nnode.data-dir=/tmp/trino-data\n",
+        "jvm.config": "-server\n-Xmx320M\n-XX:+UseG1GC\n-XX:ActiveProcessorCount=1\n-XX:+ExitOnOutOfMemoryError\n",
+        "config.properties": (
+            "coordinator=true\nnode-scheduler.include-coordinator=true\n"
+            "http-server.http.port=8080\nhttp-server.https.enabled=true\n"
+            "http-server.https.port=8443\nhttp-server.https.keystore.path=/etc/trino/server.pem\n"
+            "http-server.authentication.type=PASSWORD\n"
+            "discovery.uri=http://localhost:8080\n"
+            f"internal-communication.shared-secret={os.urandom(32).hex()}\n"
+            "query.max-memory=96MB\nquery.max-memory-per-node=96MB\n"
+            "memory.heap-headroom-per-node=96MB\nquery.max-execution-time=5m\n"
+        ),
+        "access-control.properties": "access-control.name=file\nsecurity.config-file=/etc/trino/rules.json\n",
+        "catalog/ouro.properties": (
+            "connector.name=iceberg\niceberg.catalog.type=rest\n"
+            "iceberg.rest-catalog.uri=http://polaris:8181/api/catalog\n"
+            f"iceberg.rest-catalog.warehouse={os.getenv('ICEBERG_WAREHOUSE', 'prefect')}\n"
+            "iceberg.rest-catalog.security=OAUTH2\n"
+            "iceberg.rest-catalog.oauth2.credential=${ENV:POLARIS_CLIENT_ID}:${ENV:POLARIS_CLIENT_SECRET}\n"
+            "iceberg.rest-catalog.oauth2.scope=PRINCIPAL_ROLE:ALL\n"
+            "iceberg.rest-catalog.vended-credentials-enabled=false\n"
+            "iceberg.security=read_only\nfs.s3.enabled=true\n"
+            "s3.endpoint=http://rustfs:9000\ns3.path-style-access=true\n"
+            "s3.region=${ENV:S3_REGION}\ns3.aws-access-key=${ENV:S3_ACCESS_KEY}\n"
+            "s3.aws-secret-key=${ENV:S3_SECRET_KEY}\n"
+        ),
+    }
+    rules = {
+        "catalogs": [{"user": user, "catalog": "ouro", "allow": "read-only"}],
+        "schemas": [{"user": user, "catalog": "ouro", "schema": "ouro_camara_deputados", "owner": False}],
+        "tables": [{"user": user, "catalog": "ouro", "schema": "ouro_camara_deputados", "table": ".*", "privileges": ["SELECT"]}],
+        "functions": [], "procedures": [],
+        "system_session_properties": [], "catalog_session_properties": [],
+    }
+    files["rules.json"] = json.dumps(rules, indent=2)
+    certificate_path = folder / "server.pem"
+    if not certificate_path.exists():
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+        now = datetime.now(timezone.utc)
+        cert = (x509.CertificateBuilder().subject_name(subject).issuer_name(subject)
+                .public_key(key.public_key()).serial_number(x509.random_serial_number())
+                .not_valid_before(now - timedelta(minutes=5)).not_valid_after(now + timedelta(days=365))
+                .add_extension(x509.SubjectAlternativeName([x509.DNSName("localhost"), x509.DNSName("trino")]), critical=False)
+                .sign(key, hashes.SHA256()))
+        files["server.pem"] = (key.private_bytes(serialization.Encoding.PEM,
+                                serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+                               + cert.public_bytes(serialization.Encoding.PEM)).decode()
+    for name, content in files.items():
+        target = folder / name
+        target.write_text(content, encoding="utf-8")
+        target.chmod(0o600)
+        if hasattr(os, "chown"):
+            os.chown(target, 1000, 1000)
+    if hasattr(os, "chown"):
+        os.chown(runtime / "reader.env", 1000, 1000)
 
 
 def main():
@@ -131,8 +208,10 @@ def main():
         base = f"/api/catalog/v1/{catalog}/namespaces"
         if api.call("GET", base + "/" + namespace, missing=True) is None:
             api.call("POST", base, {"namespace": [namespace], "properties": {}})
-    for privilege in ("NAMESPACE_LIST", "TABLE_LIST", "TABLE_READ_DATA", "TABLE_READ_PROPERTIES", "VIEW_LIST", "VIEW_READ_PROPERTIES"):
+    api.grant(catalog, "reader", {"type": "catalog", "privilege": "CATALOG_READ_PROPERTIES"})
+    for privilege in ("NAMESPACE_LIST", "NAMESPACE_READ_PROPERTIES", "TABLE_LIST", "TABLE_READ_DATA", "TABLE_READ_PROPERTIES", "VIEW_LIST", "VIEW_READ_PROPERTIES"):
         api.grant(catalog, "reader", {"type": "namespace", "namespace": ["ouro_camara_deputados"], "privilege": privilege})
+    trino_configuration(runtime)
     print("Bootstrap concluído: buckets, catálogo, identidades e namespaces; segredos em arquivos locais protegidos.")
 
 

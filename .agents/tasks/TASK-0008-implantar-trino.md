@@ -62,6 +62,12 @@ Estimativas incluem leitura, configuração, revisão e evidências; dividir ant
 
 ## Aceite e retomada
 
+E01–E03 configuradas: Trino 484, OAuth2 leitor, read_only e regras por namespace,
+TLS local com certificado próprio, senha PBKDF2, config/segredos gerados fora do
+Git. Código aguarda bootstrap/engine; não há validação positiva/negativa alegada.
+Dependência TASK-0005 ainda em andamento: implementação antecipada apenas de
+configuração para compor setup; status de aceite permanece pendente.
+
 - [ ] Trino configurado com principal leitor Polaris e armazenamento RustFS.
 - [ ] Autenticação e regras Ouro somente leitura implementadas, sem segredos no Git.
 - [ ] Serviço pronto para validação real de TASK-0009, sem alterar flows de transformação.

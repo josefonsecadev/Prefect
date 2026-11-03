@@ -20,6 +20,31 @@ x-polaris-env: &polaris-env
   QUARKUS_DATASOURCE_PASSWORD: ${POLARIS_DB_PASSWORD:?Configure POLARIS_DB_PASSWORD}
 
 services:
+  trino:
+    image: trinodb/trino:484
+    restart: unless-stopped
+    mem_limit: ${TRINO_MEMORY:-576m}
+    ports:
+      - '127.0.0.1:${TRINO_PORT:-8080}:8443'
+    environment:
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+    volumes:
+      - ./.prefect/runtime/trino:/etc/trino:ro
+      - ./.prefect/runtime/reader.env:/runtime/reader.env:ro
+      - ./infra/trino-start.sh:/opt/trino-start.sh:ro
+    entrypoint: ['/bin/bash', '/opt/trino-start.sh']
+    depends_on:
+      lakehouse-setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'curl', '-fkSs', 'https://localhost:8443/v1/info']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
   rustfs:
     image: rustfs/rustfs:1.0.4
     restart: unless-stopped
