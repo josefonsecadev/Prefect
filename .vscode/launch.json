@@ -26,8 +26,8 @@
       // "console": "integratedTerminal",
       "envFile": "${workspaceFolder}/.env",
       "env": {
-        "MINIO_ENDPOINT": "localhost:9000",
-        "ICEBERG_CATALOG_ENDPOINT": "http://localhost:8181/catalog",
+        "S3_ENDPOINT": "localhost:9000",
+        "ICEBERG_CATALOG_ENDPOINT": "http://localhost:8181/api/catalog",
         "PREFECT_API_URL": "http://127.0.0.1:4200/api"
       }
     },
@@ -41,8 +41,8 @@
       "cwd": "${workspaceFolder}",
       "envFile": "${workspaceFolder}/.env",
       "env": {
-        "MINIO_ENDPOINT": "localhost:9000",
-        "ICEBERG_CATALOG_ENDPOINT": "http://localhost:8181/catalog",
+        "S3_ENDPOINT": "localhost:9000",
+        "ICEBERG_CATALOG_ENDPOINT": "http://localhost:8181/api/catalog",
         "PREFECT_API_URL": "http://127.0.0.1:4200/api"
       }
     }

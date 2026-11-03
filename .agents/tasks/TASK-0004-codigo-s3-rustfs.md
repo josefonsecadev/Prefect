@@ -2,7 +2,7 @@
 
 ## Identificação
 
-- Status: em_execucao
+- Status: concluida
 - Categoria: dados
 - Tipo: melhoria
 - Etiquetas: [rustfs, polaris, s3, duckdb, python, iceberg]
@@ -63,9 +63,16 @@ do host atualizado sem credenciais reais. QA documental/diff aprovado; sem alega
 flow executado. E02/E03 em andamento. Python do host não possui dependências;
 Docker Desktop foi iniciado, mas engine ainda não respondeu.
 
-- [ ] Acesso S3 e attach Polaris implementados conforme contrato.
-- [ ] Chamadores e debug consistentes; nenhuma dependência do servidor/catálogo antigo.
-- [ ] Regras de negócio preservadas; integração pronta para TASK-0005/0006.
+- [x] Acesso S3 e attach Polaris implementados conforme contrato.
+- [x] Chamadores e debug consistentes; nenhuma dependência do servidor/catálogo antigo.
+- [x] Regras de negócio preservadas; integração pronta para TASK-0005/0006.
 - Próxima ação: após TASK-0003, E01. Nenhuma alteração de aplicação executada ainda.
 - Histórico: 2026-11-03 — escopo ampliado de armazenamento para RustFS + Polaris;
   descartada exigência de compatibilidade com dados/configurações legadas.
+
+E02/E03 concluídas: `_s3` com região/TLS, DuckDB 128MB/uma thread/temporários em
+disco, OAuth2 com timeout e renovação preventiva do secret; chamadores e endpoints
+debug migrados. `rg` não encontrou atributos antigos em utils/pipelines. QA do diff
+aprovado; cinco arquivos nesta etapa. Critério desta tarefa é entrega de código
+pronto para integração; execução e renovação em uso real continuam obrigatórias
+na TASK-0006, sem alegar compatibilidade executada. Nenhum teste artificial criado.

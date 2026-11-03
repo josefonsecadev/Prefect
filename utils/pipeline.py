@@ -79,14 +79,14 @@ class Pipeline(Conexoes):
       subpath (Optional[str], optional): Subpath para limpar a pasta. Defaults to None.
     """
 
-    with self._minio() as minio_client:
-      objects_to_delete = minio_client.list_objects(
+    with self._s3() as s3_client:
+      objects_to_delete = s3_client.list_objects(
           bucket_name=self.camada,
           prefix=path,
           recursive=True
       )
       for obj in objects_to_delete:
-        minio_client.remove_object(
+        s3_client.remove_object(
           self.camada,
           obj.object_name
         )
@@ -106,7 +106,7 @@ class Pipeline(Conexoes):
       subpath (Optional[str], optional): Subpath para salvar o arquivo. Defaults to None.
     """
 
-    with self._minio() as minio_client:
+    with self._s3() as s3_client:
 
       path = f"{self._set_path(subpath)}/{nome_arquivo}"
      
@@ -114,14 +114,14 @@ class Pipeline(Conexoes):
       
       try:
          tamanho = self.tamanho_arquivo(arquivo)
-         minio_client.put_object(
+         s3_client.put_object(
             bucket_name=self.camada,
             object_name=path,
             data=arquivo,
             length=tamanho
         )
       except TypeError:
-         minio_client.put_object(
+         s3_client.put_object(
             bucket_name=self.camada,
             object_name=path,
             data=arquivo,
@@ -149,9 +149,9 @@ class Pipeline(Conexoes):
      """
     prefix = self._set_path(subpath)
     camada_origem = camada or self.camada
-    with self._minio() as minio_client:
+    with self._s3() as s3_client:
       objetos = [
-          objeto for objeto in minio_client.list_objects(
+          objeto for objeto in s3_client.list_objects(
               bucket_name=camada_origem,
               prefix=prefix,
               recursive=True
@@ -233,9 +233,9 @@ class Pipeline(Conexoes):
         subpath (Optional[str], optional): Subpath de leitura
       """
 
-      with self._minio() as minio_client:
+      with self._s3() as s3_client:
         prefix = self._set_path(subpath)
-        objetos = list(minio_client.list_objects(
+        objetos = list(s3_client.list_objects(
             bucket_name=self.camada,
             prefix=prefix,
             recursive=True
@@ -247,7 +247,7 @@ class Pipeline(Conexoes):
         if not objetos:
             raise FileNotFoundError(f"Nenhum arquivo encontrado no path '{prefix}'")
 
-        with minio_client.get_object(
+        with s3_client.get_object(
             bucket_name=self.camada,
             object_name=objetos[0].object_name
         ) as resposta:
