@@ -124,6 +124,11 @@ Uma decisão arquitetural não pode ser transferida implicitamente ao desenvolvi
 
 ### Ouro
 
+- Primeiro produto planejado: `ouro_camara_deputados.despesas_mensais`, granularidade
+  deputado (`ideCadastro`), ano e mês; soma decimal de `vlrLiquido`, incluindo
+  negativos, sem novo desconto de glosa; contagem de lançamentos. Reprocessar
+  somente o ano solicitado. Contrato detalhado e aceite na TASK-0009.
+
 - Existe apenas quando há uma necessidade de consumo definida.
 - Mantém métricas e regras de negócio explícitas e testáveis.
 - Consome preferencialmente a Prata e não acessa diretamente a fonte ou a Bronze sem justificativa arquitetural.

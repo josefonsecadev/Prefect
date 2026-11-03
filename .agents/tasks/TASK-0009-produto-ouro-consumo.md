@@ -16,6 +16,16 @@
 
 ## Objetivo e contexto
 
+Contrato inicial E01: despesas líquidas por deputado/mês, consumidor analítico SQL.
+Chave (ano, mes, deputado_id=ideCadastro); nome representativo MIN(txNomeParlamentar)
+para não dividir uma chave por variações de grafia. Quantidade de lançamentos é
+COUNT(*), não contagem de documentos únicos. Valor = SUM(vlrLiquido) DECIMAL(18,2),
+incluindo negativos e sem descontar vlrGlosa novamente. Não inventar deduplicação
+de documentos sem chave confirmada. ID/ano/mês/valor inválidos falham, sem descarte.
+Destino ouro_camara_deputados.despesas_mensais; partição ano e substituição apenas
+do ano solicitado. Primeiro produto proposto na pergunta opcional e adotado como
+padrão de implementação; usuário pode alterar antes da publicação de consumo.
+
 Entregar uma tabela Ouro útil, gerada por flow real e consultável pelo consumidor
 SQL no Trino. Não presumir Ouro existente nem apenas renomear/expor Prata. Projeto
 nasce com dados novos: produto será calculado das fontes e camadas reconstruídas.
