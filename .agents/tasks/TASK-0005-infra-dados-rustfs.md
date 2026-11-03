@@ -2,7 +2,7 @@
 
 ## Identificação
 
-- Status: backlog
+- Status: em_execucao
 - Categoria: docker
 - Tipo: criacao
 - Etiquetas: [rustfs, polaris, s3, iceberg, postgres, infraestrutura]
@@ -59,6 +59,11 @@ inclui leitura e avaliação, até 5.000 tokens. Se precisar de mais helpers, di
   em TASK-0006/0009. Resultado: pendente.
 
 ## Aceite e retomada
+
+E01 implementada: Compose com imagens fixas, volumes novos, backend JDBC e profile
+processing. Limites de memória iniciais são hipóteses a medir. Engine Docker do
+host ainda não responde; nenhuma prontidão ou persistência foi alegada. Bootstrap
+API será entregue na próxima etapa; task não concluída antes do aceite executável.
 
 - [ ] RustFS e Polaris padrão, com persistência e inicialização idempotente.
 - [ ] Ambiente nasce vazio sem depender de MinIO, Lakekeeper ou seus dados.
