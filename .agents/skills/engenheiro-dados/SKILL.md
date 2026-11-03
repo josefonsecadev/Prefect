@@ -1,6 +1,6 @@
 ---
 name: engenheiro-dados
-description: Implementar, alterar, diagnosticar e revisar flows Prefect de pipelines de dados neste projeto. Usar quando a demanda envolver coleta de APIs com Requests, extração de páginas dinâmicas com Selenium, persistência Bronze no MinIO, transformação com DuckDB, publicação de tabelas Apache Iceberg pelo catálogo REST Lakekeeper, camadas Prata/Ouro, deployments, reprocessamento, idempotência ou observabilidade operacional.
+description: Implementar, alterar, diagnosticar e revisar flows Prefect de pipelines de dados neste projeto. Usar quando a demanda envolver coleta de APIs com Requests, extração de páginas dinâmicas com Selenium, persistência Bronze no RustFS, transformação com DuckDB, publicação de tabelas Apache Iceberg pelo catálogo REST Apache Polaris, camadas Prata/Ouro, deployments, reprocessamento, idempotência ou observabilidade operacional.
 ---
 
 # Engenheiro de Dados
@@ -21,15 +21,15 @@ Não iniciar implementação enquanto estiverem indefinidos contratos que altere
 
 1. Ler integralmente o flow solicitado antes de executá-lo. Procurar erros concretos, sem ampliar a análise para melhorias, `utils` ou funções genéricas.
 2. Conferir se existe uma configuração do flow em `.vscode/launch.json`, com o módulo `pipelines.<mini_projeto>.<flow>.orquestrador`, a `.venv` do projeto e o `.env`.
-3. Executar `docker compose ps` e somente prosseguir quando Prefect Server, MinIO, Lakekeeper e banco do catálogo estiverem ativos e saudáveis.
+3. Executar `docker compose ps` e somente prosseguir quando Prefect Server, RustFS, Apache Polaris e banco do catálogo estiverem ativos e saudáveis.
 4. Distinguir os endpoints conforme o processo que executará o flow:
-   - dentro do Docker, usar os nomes dos serviços, como `minio`, `lakekeeper` e `prefect-server`;
+   - dentro do Docker, usar os nomes dos serviços, como `rustfs`, `polaris` e `prefect-server`;
    - no host Windows, sobrescrever na configuração de debug:
 
      ```json
      {
-       "MINIO_ENDPOINT": "localhost:9000",
-       "ICEBERG_CATALOG_ENDPOINT": "http://localhost:8181/catalog",
+       "S3_ENDPOINT": "localhost:9000",
+       "ICEBERG_CATALOG_ENDPOINT": "http://localhost:8181/api/catalog",
        "PREFECT_API_URL": "http://127.0.0.1:4200/api"
      }
      ```
@@ -51,7 +51,7 @@ Não iniciar implementação enquanto estiverem indefinidos contratos que altere
 
 9. Interpretar falhas de ambiente antes de propor mudança no flow:
    - servidor temporário e `No module named uvicorn`: `PREFECT_API_URL` não foi aplicado;
-   - falha ao resolver `lakekeeper`: endpoint interno do Docker usado por uma execução no host;
+   - falha ao resolver `polaris`: endpoint interno do Docker usado por uma execução no host;
    - `WinError 10013` em API externa ou erro ao gravar em `~/.prefect`: restrição do sandbox, devendo solicitar execução fora dele;
    - erro de serialização do cache envolvendo a instância da pipeline: registrar separadamente se a task continuar e identificar a exceção que efetivamente definiu o estado final.
 10. Acompanhar Bronze, Prata/Ouro e orquestrador até um estado terminal. Em caso de erro real do flow ou da configuração versionada, aplicar a menor correção dentro do escopo e executar novamente. Repetir até o flow terminar sem falhas.
@@ -87,8 +87,8 @@ pipelines/<mini_projeto>/<flow>/
 ## Transformar e publicar
 
 - Usar DuckDB para leitura, tipagem, validação, joins e agregações; evitar materialização em Python quando SQL resolver o processamento de forma mais eficiente.
-- Publicar Prata e Ouro como tabelas Iceberg transacionais por meio do catálogo REST Lakekeeper.
-- Manter PostgreSQL apenas como persistência interna do Lakekeeper.
+- Publicar Prata e Ouro como tabelas Iceberg transacionais por meio do catálogo REST Apache Polaris.
+- Manter PostgreSQL apenas como persistência interna do Apache Polaris.
 - Ler [publicacao.md](references/publicacao.md) antes de alterar SQL, schema, particionamento, catálogo, snapshots ou escrita Iceberg.
 - Garantir que repetir o mesmo recorte não duplique registros nem substitua partições fora do escopo.
 

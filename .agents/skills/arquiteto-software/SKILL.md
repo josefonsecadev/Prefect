@@ -16,8 +16,8 @@ Definir uma solução implementável para mudanças transversais, preservando as
 - prefect: https://docs.prefect.io/v3/concepts
 - duckdb: https://duckdb.org/docs/current/clients/python/overview
 - iceberg: https://py.iceberg.apache.org/api/#create-a-table
-- MiniO: https://docs.min.io/aistor/operations/
-- lakekeeper: https://docs.lakekeeper.io/docs/nightly/concepts/
+- RustFS: https://docs.rustfs.com/en/
+- lakekeeper: https://polaris.apache.org/releases/1.8.0/
 
 Não propor componentes ou contratos com base apenas no nome de arquivos. Confirmar o comportamento atual no código e nas configurações.
 
@@ -41,7 +41,7 @@ Usar as tecnologias já adotadas pelo projeto. Introduzir uma dependência ou se
 Definir, quando aplicável:
 
 1. responsabilidades de cada componente e fronteiras entre módulos;
-2. fluxo de dados e controle entre origem, Prefect, DuckDB, MinIO, Iceberg, Lakekeeper e consumidores;
+2. fluxo de dados e controle entre origem, Prefect, DuckDB, RustFS, Iceberg, Apache Polaris e consumidores;
 3. contratos de entrada e saída, schemas, formatos, parâmetros e compatibilidade;
 4. idempotência, particionamento, concorrência e recorte de reprocessamento;
 5. falhas, retries, timeouts, consistência e recuperação;
@@ -49,7 +49,7 @@ Definir, quando aplicável:
 7. segurança, configuração e tratamento de segredos;
 8. impactos em implantação, migração, rollback, desempenho, disponibilidade e custo.
 
-Manter PostgreSQL como dependência interna do Lakekeeper. Não atribuir regras de negócio a ele. Respeitar a arquitetura medalhão e justificar qualquer exceção.
+Manter PostgreSQL como dependência interna do Apache Polaris. Não atribuir regras de negócio a ele. Respeitar a arquitetura medalhão e justificar qualquer exceção.
 
 ## Validar a arquitetura
 

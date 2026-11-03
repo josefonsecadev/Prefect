@@ -16,16 +16,16 @@
 - Definir chave natural ou técnica, regra de deduplicação e ordenação determinística.
 - Manter métricas de entrada, saída, rejeição e duplicidade para reconciliação.
 
-## Iceberg com Lakekeeper
+## Iceberg com Apache Polaris
 
-1. Acessar Iceberg pelo catálogo REST Lakekeeper usando as abstrações compartilhadas do projeto.
+1. Acessar Iceberg pelo catálogo REST Apache Polaris usando as abstrações compartilhadas do projeto.
 2. Manter endpoint, warehouse, credenciais e opções do catálogo em configuração externa.
 3. Criar namespace e tabela de forma idempotente quando essa responsabilidade pertencer ao pipeline.
 4. Compatibilizar schema de escrita com o contrato da tabela. Tratar evolução de schema como decisão explícita e testada.
 5. Escolher partições pelos filtros e recortes frequentes, evitando cardinalidade excessiva. Não particionar apenas por conveniência do arquivo de origem.
 6. Publicar por operação transacional. Usar substituição do recorte ou `MERGE` definido pelo contrato; não executar append cego em fluxos reprocessáveis.
 7. Registrar identificador do snapshot confirmado, tabela, recorte e contagens. Considerar sucesso somente após o commit no catálogo.
-8. Não acessar o PostgreSQL interno do Lakekeeper nem colocar regras de negócio nele.
+8. Não acessar o PostgreSQL interno do Apache Polaris nem colocar regras de negócio nele.
 
 ## Idempotência e falhas
 

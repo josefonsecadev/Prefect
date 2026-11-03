@@ -89,6 +89,11 @@ README distingue código entregue de aceites executáveis ainda pendentes. Setup
 local disponível; Docker backend falhou ao iniciar e ao reiniciar, e iniciar
 com.docker.service foi recusado por permissões. E01–E03 não executadas ainda.
 
+E05: skills de Arquitetura/Engenharia e publicação atualizadas para RustFS/Polaris;
+AGENTS registra decisão e janela de processamento. `graphify update .` foi tentado,
+mas o executável não está instalado/no PATH neste host; atualização do grafo pendente.
+Dependências Python do lock instaladas na .venv (DuckDB 1.5.4, Prefect 3.7.7).
+
 - [ ] Quatro orquestradores completos sem falhas na nova base.
 - [ ] Reprocessamento idempotente, snapshots novos e reinicialização comprovados.
 - [ ] Documentação/instruções coerentes; pendência de Trino/Ouro explícita.

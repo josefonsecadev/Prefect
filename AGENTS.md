@@ -43,6 +43,11 @@ Se nenhuma skill se aplicar, apresente soluções baseado no conteúdo deste arq
 
 ## Controle de tarefas do projeto
 
+Arquitetura alvo aprovada: RustFS (S3), Apache Polaris (catálogo Iceberg) e Trino
+(leitura da Ouro), com Prefect e DuckDB. Instalação nova, sem migrar catálogos/dados
+antigos. Trino e sua base permanecem ligados; Prefect opera em janela automatizada,
+um flow por vez. Meta de 2GB exige medição real antes de aceite; não presumir capacidade.
+
 - O backlog fica em `.agents/tasks/README.md`; cada tarefa possui arquivo próprio nesse diretório, baseado em `.agents/tasks/TEMPLATE.md`.
 - Para demandas de alteração, consulte o índice e use a skill Gestão de Tasks antes de implementar. Perguntas informativas não exigem criar tarefa.
 - Registre a demanda antes de executar e mantenha contexto, etapas, status, evidências e próximo passo atualizados para permitir retomada em outro chat.
