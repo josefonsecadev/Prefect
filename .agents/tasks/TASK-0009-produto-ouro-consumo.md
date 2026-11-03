@@ -90,6 +90,12 @@ esta tarefa e índice. Sem testes, fixtures, mocks ou scripts que substituam flo
 
 ## Aceite e retomada
 
+E02 implementada: `PipeOuro` filtra ano na Prata, valida campos obrigatórios,
+agrega com DECIMAL, reconcilia soma/quantidade e publica partição anual pelo Polaris.
+Orquestrador de despesas inclui Ouro. Critério E03 pendente de engine Docker;
+nenhum resultado financeiro ou run foi declarado validado. Antecipada implementação
+para avançar enquanto ambiente está bloqueado; dependências executáveis permanecem.
+
 - [ ] Produto Ouro definido com necessidade real e contrato explícito.
 - [ ] Flow completo publica e reprocessa sem duplicação; snapshot novo visível no Trino.
 - [ ] Consumidor lê Ouro, sem ler camadas internas ou modificar dados.

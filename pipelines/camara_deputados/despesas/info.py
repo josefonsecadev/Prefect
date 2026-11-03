@@ -4,6 +4,14 @@ class Info:
   """
   PROJECT_NAME = "camara_deputados"
   PIPELINE_NAME = "despesas"
+  SCHEMA_OURO = {
+    "ano": "INTEGER",
+    "mes": "INTEGER",
+    "deputado_id": "VARCHAR",
+    "nome_deputado": "VARCHAR",
+    "quantidade_lancamentos": "BIGINT",
+    "valor_liquido": "DECIMAL(18,2)"
+  }
   
 
   SCHEMA_PRATA = {
