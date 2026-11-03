@@ -29,7 +29,7 @@ reprodução completa após integração em TASK-0006.
 
 ### E01 — Configuração compartilhada S3 e Polaris
 
-- Status: backlog; estimativa: 3.500 tokens.
+- Status: concluida; estimativa: 3.500 tokens.
 - Arquivos: `utils/config.py`, `.env.example` + controle (quatro).
 - Implementar contratos S3 e Polaris da TASK-0003, validar endpoint/região/TLS e
   OAuth2 sem expor segredos. Remover exigência de MINIO_*; exemplo aponta para RustFS.
@@ -37,7 +37,7 @@ reprodução completa após integração em TASK-0006.
 
 ### E02 — Conexões Python e DuckDB
 
-- Status: backlog; depende de E01; estimativa: 4.000 tokens.
+- Status: concluida; depende de E01; estimativa: 4.000 tokens.
 - Arquivos: `utils/conexoes.py`, `utils/pipeline.py` + controle (quatro).
 - Configurar cliente S3 e DuckDB com os mesmos parâmetros, renomear abstração
   `_minio` para S3 e ajustar todos os chamadores. Manter SDK somente se compatível.
@@ -49,7 +49,7 @@ reprodução completa após integração em TASK-0006.
 
 ### E03 — Debug local e endpoints
 
-- Status: backlog; depende de E02; estimativa: 2.500 tokens.
+- Status: concluida; depende de E02; estimativa: 2.500 tokens.
 - Arquivos: `.vscode/launch.json`, `.env.example`, `utils/config.py` se necessário + controle (até cinco).
 - Ajustar perfis dos flows para endpoints do host e autenticação Polaris; containers
   usam DNS interno. Confirmar interpretador disponível sem inventar caminho debug.

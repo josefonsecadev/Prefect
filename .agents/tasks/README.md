@@ -16,8 +16,8 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | [TASK-0006](TASK-0006-validar-documentar-rustfs.md) | Validar flows no ambiente novo RustFS + Polaris | pipelines | manutencao | P2 | bloqueada | Docker ativo; executar flows reais e atualizar grafo |
 | [TASK-0007](TASK-0007-acesso-sql-ouro.md) | Escolher arquitetura de acesso SQL à Ouro | infraestrutura | investigacao | P2 | concluida | Trino + Polaris aprovados; execução nas tasks |
 | [TASK-0008](TASK-0008-implantar-trino.md) | Implantar Trino com Polaris e RustFS | infraestrutura | criacao | P2 | bloqueada | Docker ativo; validar serviço e autenticação |
-| [TASK-0009](TASK-0009-produto-ouro-consumo.md) | Publicar Ouro e validar consumo pelo Trino | dados | criacao | P2 | backlog | E01 após TASK-0003; definir produto Ouro |
-| [TASK-0010](TASK-0010-janela-processamento.md) | Automatizar Prefect e medir orçamento de 2GB | orquestracao | criacao | P2 | backlog | Implementar após TASK-0005; validar com TASK-0009 |
+| [TASK-0009](TASK-0009-produto-ouro-consumo.md) | Publicar Ouro e validar consumo pelo Trino | dados | criacao | P2 | bloqueada | Docker ativo; validar despesas mensais implementadas |
+| [TASK-0010](TASK-0010-janela-processamento.md) | Automatizar Prefect e medir orçamento de 2GB | orquestracao | criacao | P2 | bloqueada | Docker ativo; executar batch e medir pico real |
 
 Demandas registradas a partir das solicitações do usuário; classificação secundária no arquivo de cada tarefa.
 

@@ -2,7 +2,7 @@
 
 ## Identificação
 
-- Status: backlog
+- Status: bloqueada
 - Categoria: dados
 - Tipo: criacao
 - Etiquetas: [ouro, prefect, duckdb, iceberg, polaris, rustfs, trino, bi]
@@ -95,6 +95,12 @@ agrega com DECIMAL, reconcilia soma/quantidade e publica partição anual pelo P
 Orquestrador de despesas inclui Ouro. Critério E03 pendente de engine Docker;
 nenhum resultado financeiro ou run foi declarado validado. Antecipada implementação
 para avançar enquanto ambiente está bloqueado; dependências executáveis permanecem.
+
+Bloqueio de aceite em 2026-11-03: Docker engine não inicia (TASK-0005). Retomar E03
+com flow completo para ano explícito e consumidor Trino real, validar reconciliação,
+idempotência, snapshots, negações e persistência. Produto inicial implementado é
+despesas por deputado/mês, adotado após pergunta opcional; não houve resposta do
+usuário alterando essa proposta até esta entrega. Nenhuma publicação foi executada.
 
 - [ ] Produto Ouro definido com necessidade real e contrato explícito.
 - [ ] Flow completo publica e reprocessa sem duplicação; snapshot novo visível no Trino.

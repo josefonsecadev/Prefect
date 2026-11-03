@@ -1,6 +1,6 @@
 # TASK-0010 — Automatizar janela Prefect e medir memória
 
-- Status: backlog
+- Status: bloqueada
 - Categoria: orquestracao
 - Tipo: criacao
 - Prioridade: P2
@@ -48,3 +48,9 @@ QA: batch usa `compose run --rm prefect-worker` como executor de uso único;
 não mantém poller adicional junto do processo do flow. O serviço worker tradicional
 continua disponível para deployments manuais. Checagem final usa Server, que só
 para se não houver runs ativos. Essa opção reduz duplicação de processos Python.
+
+Bloqueio E02 em 2026-11-03: engine Docker indisponível. `compose config --quiet`
+passou, mas batch, trava concorrente, consultas contínuas e pico de memória não
+foram validados. Medição de 2GB permanece obrigatória e não demonstrada. E03
+documentada no README sem cadastrar agenda real: usuário não definiu horário.
+Retomar E02 com stack saudável; corrigir apenas falhas reais e registrar evidências.

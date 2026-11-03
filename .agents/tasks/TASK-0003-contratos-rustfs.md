@@ -30,7 +30,7 @@ exceder 5.000 tokens; nenhuma implementação ou destruição de dados nesta tar
 
 ### E01 — Fixar versões e contratos de conexão
 
-- Status: pronta; estimativa: 4.000 tokens.
+- Status: concluida; estimativa: 4.000 tokens.
 - Arquivos: este registro, índice e `.agents/knowledge/planning.md` (três).
 - Fixar versões estáveis/imagens/digests RustFS, Polaris e Trino usando documentação
   oficial; verificar compatibilidade de leitura/escrita Iceberg com DuckDB do projeto.
@@ -50,7 +50,7 @@ exceder 5.000 tokens; nenhuma implementação ou destruição de dados nesta tar
 
 ### E02 — Bootstrap e permissões do ambiente novo
 
-- Status: backlog; depende de E01; estimativa: 3.500 tokens.
+- Status: concluida; depende de E01; estimativa: 3.500 tokens.
 - Arquivos: este registro, índice e planning (três).
 - Definir bootstrap ordenado e idempotente: buckets, backend Polaris, catálogo,
   namespaces, principal escritor, principal leitor e grants. Erros devem propagar;
