@@ -37,3 +37,9 @@ Não cadastrar agenda real sem horário definido pelo usuário; entregar comando
 - [ ] Se exceder 2GB ou ocorrer OOM, registrar bloqueio de capacidade e não declarar aceite.
 
 Próxima ação: implementar E01 depois da base. Nenhum horário de agenda foi presumido.
+
+E01 implementada: `python -m infra.batch --year ANO` com trava exclusiva, profile
+processing, espera de prontidão, flows síncronos sequenciais e desligamento somente
+após checagem de runs ativos. Recusa assumir Prefect previamente ligado. Trino/base
+não são parados. Coleta amostras de memória no diretório ignorado `.prefect/runtime`.
+Ainda falta E02 real; Docker indisponível, portanto task não concluída.
