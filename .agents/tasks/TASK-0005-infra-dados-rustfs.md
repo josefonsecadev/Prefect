@@ -75,6 +75,8 @@ na URL JDBC conforme documentação 1.8.0; montagem de runtime no Trino evita qu
 Docker crie um diretório no lugar de reader.env antes do bootstrap; shell com LF.
 `docker compose config --quiet` passou, sem substituição do aceite de execução.
 
+Timeouts explícitos S3: conexão 5s/leitura 30s, retry limitado a falhas transitórias.
+
 - [ ] RustFS e Polaris padrão, com persistência e inicialização idempotente.
 - [ ] Ambiente nasce vazio sem depender de MinIO, Lakekeeper ou seus dados.
 - [ ] Credenciais separadas e dependências corretas; pronto para executar flows.

@@ -11,6 +11,7 @@ from minio import Minio
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from urllib3 import PoolManager, Timeout
 
 
 def required(name):
@@ -183,7 +184,10 @@ def main():
     client = Minio(endpoint, access_key=required("RUSTFS_ACCESS_KEY"),
                    secret_key=required("RUSTFS_SECRET_KEY"),
                    secure=os.getenv("S3_USE_SSL", "false").lower() == "true",
-                   region=os.getenv("S3_REGION", "us-east-1"))
+                   region=os.getenv("S3_REGION", "us-east-1"),
+                   http_client=PoolManager(timeout=Timeout(connect=5, read=30),
+                                           retries=Retry(total=3, backoff_factor=1,
+                                                         status_forcelist=[502, 503, 504])))
     for bucket in ("bronze", "prata", "ouro", "iceberg"):
         if not client.bucket_exists(bucket):
             client.make_bucket(bucket)

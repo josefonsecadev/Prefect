@@ -9,6 +9,8 @@ from typing import Iterator
 import duckdb
 from minio import Minio
 import requests
+from urllib3 import PoolManager, Timeout
+from urllib3.util.retry import Retry
 
 from .config import Config, ConfigError
 
@@ -30,6 +32,9 @@ class Conexoes(Config):
             secret_key=self.s3_secret_key,
             secure=self.s3_use_ssl,
             region=self.s3_region,
+            http_client=PoolManager(timeout=Timeout(connect=5, read=30),
+                                    retries=Retry(total=3, backoff_factor=1,
+                                                  status_forcelist=[502, 503, 504])),
         )
         yield client
 
