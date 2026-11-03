@@ -15,7 +15,7 @@ x-app: &app
 x-polaris-env: &polaris-env
   POLARIS_PERSISTENCE_TYPE: relational-jdbc
   POLARIS_PERSISTENCE_RELATIONAL_JDBC_DATABASE_TYPE: postgresql
-  QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://polaris-db:5432/polaris
+  QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://polaris-db:5432/polaris?currentSchema=polaris_schema
   QUARKUS_DATASOURCE_USERNAME: polaris
   QUARKUS_DATASOURCE_PASSWORD: ${POLARIS_DB_PASSWORD:?Configure POLARIS_DB_PASSWORD}
 
@@ -32,7 +32,7 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY}
     volumes:
       - ./.prefect/runtime/trino:/etc/trino:ro
-      - ./.prefect/runtime/reader.env:/runtime/reader.env:ro
+      - ./.prefect/runtime:/runtime:ro
       - ./infra/trino-start.sh:/opt/trino-start.sh:ro
     entrypoint: ['/bin/bash', '/opt/trino-start.sh']
     depends_on:
@@ -79,6 +79,7 @@ services:
     command: ['postgres', '-c', 'shared_buffers=16MB', '-c', 'max_connections=20', '-c', 'work_mem=1MB']
     volumes:
       - polaris-db-data:/var/lib/postgresql/data
+      - ./infra/polaris-init.sql:/docker-entrypoint-initdb.d/01-polaris.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U polaris -d polaris']
       interval: 5s

@@ -53,6 +53,11 @@ class Polaris:
         current = self.call("GET", path, missing=True)
         if current is None:
             return self.call("POST", collection, body)
+        key = next(iter(body))
+        expected_name = body[key].get("name")
+        existing = current.get(key, current)
+        if expected_name and existing.get("name") != expected_name:
+            raise RuntimeError(f"Recurso existente incompatível em {path}")
         return current
 
     def identity(self, name, role, catalog, runtime):

@@ -70,6 +70,11 @@ criação idempotente de catálogo/papéis/namespaces e credenciais geradas em r
 Perda do arquivo de credenciais exige recuperação explícita; não rotacionar em
 silêncio. Prontidão real e grants ainda precisam da execução da stack.
 
+QA adicional: schema PostgreSQL `polaris_schema` criado explicitamente e selecionado
+na URL JDBC conforme documentação 1.8.0; montagem de runtime no Trino evita que
+Docker crie um diretório no lugar de reader.env antes do bootstrap; shell com LF.
+`docker compose config --quiet` passou, sem substituição do aceite de execução.
+
 - [ ] RustFS e Polaris padrão, com persistência e inicialização idempotente.
 - [ ] Ambiente nasce vazio sem depender de MinIO, Lakekeeper ou seus dados.
 - [ ] Credenciais separadas e dependências corretas; pronto para executar flows.
