@@ -14,35 +14,44 @@ O planejamento é responsável por decidir como cada demanda se integra a essa p
 | Prefect Server | API, interface web, agendamentos e estado das execuções |
 | Prefect Worker | Execução dos flows e tasks |
 | DuckDB | Leitura, transformação e publicação dos dados |
-| MinIO | Armazenamento dos arquivos brutos e das tabelas Iceberg |
+| RustFS | Armazenamento S3 dos arquivos brutos e das tabelas Iceberg |
 | Apache Iceberg | Formato de tabela, schema, partições, snapshots e transações |
-| Lakekeeper | Catálogo REST das tabelas Iceberg |
-| PostgreSQL | Persistência interna do Lakekeeper |
+| Apache Polaris | Catálogo REST Iceberg, identidades e permissões do catálogo |
+| Trino | Consulta SQL de leitura da camada Ouro para consumidores |
+| PostgreSQL | Persistência interna do Polaris, com backend a confirmar na versão fixada |
 
-PostgreSQL é uma dependência interna do Lakekeeper e não deve receber regras de negócio dos pipelines.
+PostgreSQL é destinado à persistência interna do catálogo e não deve receber regras de negócio dos pipelines. Esta tabela descreve a arquitetura aprovada; o código ainda será adaptado pelas tasks.
 
 ## Arquitetura de dados
 
-### Decisão aprovada: migração do armazenamento para RustFS
+### Decisão aprovada: ambiente novo com RustFS, Polaris e Trino
 
-Em 2026-11-03, o usuário escolheu RustFS como padrão de armazenamento S3.
-A implementação atual ainda utiliza MinIO; as descrições existentes neste
-documento representam esse estado até a conclusão da migração.
+Em 2026-11-03, o usuário escolheu RustFS como armazenamento, Apache Polaris como
+catálogo e Trino como engine SQL de acesso à Ouro. O ambiente será provisionado
+do zero quanto a dados, catálogos, registros de tabelas, usuários e volumes novos.
+Não há requisito de copiar ou preservar dados e catálogos anteriores na solução.
+Essa dispensa não exige apagar volumes antigos para executar o planejamento.
 
-- Planejamento e execução rastreados em TASK-0003 a TASK-0006, em `.agents/tasks/`.
-- Preservar Prefect, DuckDB, Iceberg, Lakekeeper, PostgreSQL, contratos dos flows,
-  nomes de buckets, chaves de objetos, namespaces, tabelas, partições e snapshots.
+- Planejamento e execução rastreados em TASK-0003 a TASK-0009, em `.agents/tasks/`.
+- Preservar Prefect, DuckDB, Iceberg e regras de negócio dos pipelines existentes.
+  Remover MinIO Server, Lakekeeper e seus bootstraps do caminho padrão; não construir
+  reconciliação, importação ou compatibilidade de catálogo antigo.
 - Manter a topologia local de uma máquina em Docker; não introduzir cluster ou
   promessas de alta disponibilidade que essa topologia não oferece.
-- RustFS terá volume próprio; não montar nele o diretório interno do MinIO.
-  Dados existentes serão inventariados e preservados via migração pela API S3.
+- RustFS e Polaris terão persistência própria e vazia. Não montar diretório interno
+  MinIO no RustFS nem reaproveitar banco Lakekeeper como backend Polaris.
 - Usar configuração S3 explícita (endpoint, credenciais, região, TLS e path-style),
-  padrão apontando para RustFS. Congelar escritas no corte e preservar rollback.
-- Perfil e credenciais do warehouse Lakekeeper existente devem ser atualizados
-  por sua API suportada; não recriar catálogo nem ignorar divergências com HTTP 409.
-- Não há autorização para descartar dados ou atualizar componentes alheios à troca.
-- TASK-0003 fecha versão/imagem RustFS, SDK, bootstrap e detalhes operacionais
-  antes da implementação; TASK-0006 comprova flows completos e idempotência.
+  padrão apontando para RustFS; variáveis antigas MINIO_* não são contrato obrigatório.
+- DuckDB escreve Prata/Ouro pelo REST Polaris; Trino consulta as tabelas pelo mesmo
+  catálogo e lê os objetos no RustFS. Consumidores recebem identidade SQL sem
+  credenciais S3 e só acessam Ouro. Separar escritor, leitor e bootstrap administrativo.
+- Bootstrap cria buckets, catálogo, namespaces, identidades e permissões do zero,
+  sendo idempotente para reinicializações desse novo ambiente.
+- TASK-0003 fixa versões, autenticação e contratos; TASK-0004 adapta código;
+  TASK-0005 provisiona a base; TASK-0006 valida flows; TASK-0007 registra decisão;
+  TASK-0008 entrega Trino; TASK-0009 define produto Ouro e valida consumo completo.
+- Só concluir com execução real de flows completos, reprocessamento sem duplicação,
+  persistência após reinicialização e consultas/permissões SQL comprovadas.
 
 O projeto segue a arquitetura medalhão:
 
@@ -50,7 +59,7 @@ O projeto segue a arquitetura medalhão:
 Fonte de dados
     |
     v
-Bronze no MinIO
+Bronze no RustFS
     |  arquivos JSON, CSV e ZIP recebidos das fontes
     v
 Prata no Iceberg
@@ -58,6 +67,9 @@ Prata no Iceberg
     v
 Ouro no Iceberg
        tabelas agregadas destinadas a APIs, dashboards e usuários finais
+    |
+    v
+Trino (somente leitura da Ouro para consumidores)
 ```
 
 ## Organização do código
@@ -156,7 +168,7 @@ Uma decisão arquitetural não pode ser transferida implicitamente ao desenvolvi
 
 - Python é a linguagem principal para coleta e transformação.
 - `requests` é usado para APIs, DuckDB para leitura e transformação e Selenium para fontes web que realmente dependam de navegador.
-- MinIO armazena objetos do datalake.
+- RustFS armazena objetos do datalake; Polaris mantém o catálogo REST Iceberg e Trino oferece acesso SQL à Ouro.
 - Apache Iceberg fornece catálogo lógico de tabelas, schemas, snapshots, particionamento e transações.
 - Prefect define flows, tasks, deployments, estados e agendamentos.
 - Todos os serviços de produção devem ser dockerizados.
