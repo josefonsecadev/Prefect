@@ -12,10 +12,10 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | [TASK-0002](TASK-0002-avaliar-storage-s3.md) | Decidir substituto do MinIO | infraestrutura | investigacao | P2 | concluida | RustFS escolhido; seguir TASK-0003 |
 | [TASK-0003](TASK-0003-contratos-rustfs.md) | Fechar contratos RustFS + Polaris + Trino | infraestrutura | criacao | P2 | concluida | Contrato fechado; executar TASK-0004 |
 | [TASK-0004](TASK-0004-codigo-s3-rustfs.md) | Adaptar código para RustFS e Polaris | dados | melhoria | P2 | concluida | Código entregue; validar em TASK-0006 |
-| [TASK-0005](TASK-0005-infra-dados-rustfs.md) | Provisionar RustFS e Polaris do zero | docker | criacao | P2 | em_execucao | E02: bootstrap API e validação da base |
-| [TASK-0006](TASK-0006-validar-documentar-rustfs.md) | Validar flows no ambiente novo RustFS + Polaris | pipelines | manutencao | P2 | backlog | E01 após TASK-0005 |
+| [TASK-0005](TASK-0005-infra-dados-rustfs.md) | Provisionar RustFS e Polaris do zero | docker | criacao | P2 | bloqueada | Reparar engine Docker; validar bootstrap entregue |
+| [TASK-0006](TASK-0006-validar-documentar-rustfs.md) | Validar flows no ambiente novo RustFS + Polaris | pipelines | manutencao | P2 | bloqueada | Docker ativo; executar flows reais e atualizar grafo |
 | [TASK-0007](TASK-0007-acesso-sql-ouro.md) | Escolher arquitetura de acesso SQL à Ouro | infraestrutura | investigacao | P2 | concluida | Trino + Polaris aprovados; execução nas tasks |
-| [TASK-0008](TASK-0008-implantar-trino.md) | Implantar Trino com Polaris e RustFS | infraestrutura | criacao | P2 | backlog | E01 após TASK-0003/0005 |
+| [TASK-0008](TASK-0008-implantar-trino.md) | Implantar Trino com Polaris e RustFS | infraestrutura | criacao | P2 | bloqueada | Docker ativo; validar serviço e autenticação |
 | [TASK-0009](TASK-0009-produto-ouro-consumo.md) | Publicar Ouro e validar consumo pelo Trino | dados | criacao | P2 | backlog | E01 após TASK-0003; definir produto Ouro |
 | [TASK-0010](TASK-0010-janela-processamento.md) | Automatizar Prefect e medir orçamento de 2GB | orquestracao | criacao | P2 | backlog | Implementar após TASK-0005; validar com TASK-0009 |
 
@@ -23,7 +23,9 @@ Demandas registradas a partir das solicitações do usuário; classificação se
 
 Arquitetura aprovada: **Prefect + DuckDB + RustFS + Iceberg + Apache Polaris + Trino**.
 Instalação nova de dados e catálogo: sem cópia, importação ou compatibilidade com
-registros antigos. Implementação ainda pendente. Sequência principal: 0003 → 0004 →
+registros antigos. Contratos/código base entregues; infraestrutura, Ouro, Trino e
+automação implementados, mas ainda sem aceite executável por falha do Docker Desktop.
+Sequência principal: 0003 → 0004 →
 0005 → 0006; Trino (0008) pode ser configurado após 0005. Produto Ouro/aceite completo
 (0009) exige 0006 e 0008; seu contrato de negócio pode ser definido após 0003.
 

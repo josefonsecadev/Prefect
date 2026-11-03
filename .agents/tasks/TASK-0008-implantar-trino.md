@@ -2,7 +2,7 @@
 
 ## Identificação
 
-- Status: backlog
+- Status: bloqueada
 - Categoria: infraestrutura
 - Tipo: criacao
 - Etiquetas: [trino, polaris, rustfs, sql, seguranca, ouro, docker]
@@ -67,6 +67,11 @@ TLS local com certificado próprio, senha PBKDF2, config/segredos gerados fora d
 Git. Código aguarda bootstrap/engine; não há validação positiva/negativa alegada.
 Dependência TASK-0005 ainda em andamento: implementação antecipada apenas de
 configuração para compor setup; status de aceite permanece pendente.
+
+Bloqueio em 2026-11-03: Docker backend falha no socket dockerInference e não
+inicializa serviços. Retomar após TASK-0005 operacional: comprovar Trino saudável,
+login correto/incorreto, OAuth2 e acesso ao catálogo, antes de concluir a task.
+Configuração entregue não equivale a Trino implantado/validado.
 
 - [ ] Trino configurado com principal leitor Polaris e armazenamento RustFS.
 - [ ] Autenticação e regras Ouro somente leitura implementadas, sem segredos no Git.

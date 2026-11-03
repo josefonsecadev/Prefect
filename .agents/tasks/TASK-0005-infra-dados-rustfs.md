@@ -2,7 +2,7 @@
 
 ## Identificação
 
-- Status: em_execucao
+- Status: bloqueada
 - Categoria: docker
 - Tipo: criacao
 - Etiquetas: [rustfs, polaris, s3, iceberg, postgres, infraestrutura]
@@ -76,6 +76,21 @@ Docker crie um diretório no lugar de reader.env antes do bootstrap; shell com L
 `docker compose config --quiet` passou, sem substituição do aceite de execução.
 
 Timeouts explícitos S3: conexão 5s/leitura 30s, retry limitado a falhas transitórias.
+
+## Bloqueio de ambiente e retomada — 2026-11-03
+
+`docker compose up --build -d` não respondeu em 30s (TimeoutExpired). Docker Desktop
+4.80.0 não iniciou engine Linux: log do backend relata `initializing Inference
+manager` / `dockerInference` / `The file cannot be accessed by the system`.
+Reinício pelo CLI também expirou. Start-Service com.docker.service foi recusado
+por permissões. Tentativa de remover apenas socket temporário com Docker parado
+foi rejeitada pela revisão automática de segurança (`blocked by policy`), sem
+detalhamento; não contornada. Nenhum volume foi removido.
+
+Desbloqueio: reparar/iniciar Docker Desktop até `docker info` responder. Depois
+executar `docker compose up --build -d`, conferir imagens, permissões, bootstrap
+e reinicialização; corrigir falhas reais antes de marcar os critérios acima.
+Configuração e implementação foram commitadas; task continua pendente de aceite.
 
 - [ ] RustFS e Polaris padrão, com persistência e inicialização idempotente.
 - [ ] Ambiente nasce vazio sem depender de MinIO, Lakekeeper ou seus dados.

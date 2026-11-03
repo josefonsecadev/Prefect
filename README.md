@@ -17,6 +17,10 @@ ainda exigem validação real. A indisponibilidade do backend Docker no host imp
 esses aceites até o momento. Consulte [.agents/tasks/README.md](.agents/tasks/README.md).
 Não interpretar os limites de memória abaixo como capacidade comprovada.
 
+Bloqueio registrado no host Windows: Docker Desktop falha ao inicializar o socket
+`dockerInference`; engine Linux não responde. Reparar o Docker é pré-requisito para
+executar o setup e validar as tasks. Nenhum volume antigo foi apagado.
+
 ## Instalação nova
 
 Pré-requisitos: Docker com engine Linux, Compose V2, Python 3.14.6 e Poetry para

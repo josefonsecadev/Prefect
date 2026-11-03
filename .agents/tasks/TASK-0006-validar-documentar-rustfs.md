@@ -2,7 +2,7 @@
 
 ## Identificação
 
-- Status: backlog
+- Status: bloqueada
 - Categoria: pipelines
 - Tipo: manutencao
 - Etiquetas: [rustfs, polaris, prefect, duckdb, iceberg, documentacao, agentes]
@@ -93,6 +93,15 @@ E05: skills de Arquitetura/Engenharia e publicação atualizadas para RustFS/Pol
 AGENTS registra decisão e janela de processamento. `graphify update .` foi tentado,
 mas o executável não está instalado/no PATH neste host; atualização do grafo pendente.
 Dependências Python do lock instaladas na .venv (DuckDB 1.5.4, Prefect 3.7.7).
+
+Bloqueio/retomada em 2026-11-03: engine Docker indisponível (detalhe na TASK-0005).
+Não iniciar flow com serviços obrigatórios ausentes conforme skill Engenharia de
+Dados. E01–E03 continuam sem execução; nenhum run Completed alegado. Desbloquear
+TASK-0005 e executar legislaturas → deputados → despesas/Ouro e manutenção,
+registrando run IDs, recortes, snapshots e reprocessamento. Atualização Graphify
+também depende de disponibilizar o executável; sua ausência foi registrada.
+As três skills modificadas passaram no quick_validate.py pela .venv; isso valida
+formato das skills, não os flows ou o catálogo.
 
 - [ ] Quatro orquestradores completos sem falhas na nova base.
 - [ ] Reprocessamento idempotente, snapshots novos e reinicialização comprovados.
