@@ -14,7 +14,7 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | [TASK-0004](TASK-0004-codigo-s3-rustfs.md) | Adaptar acesso aos dados para RustFS | dados | melhoria | P2 | backlog | E01 após TASK-0003 |
 | [TASK-0005](TASK-0005-infra-dados-rustfs.md) | Migrar infraestrutura e dados para RustFS | docker | manutencao | P2 | backlog | E01 após TASK-0004 |
 | [TASK-0006](TASK-0006-validar-documentar-rustfs.md) | Validar flows e consolidar RustFS como padrão | pipelines | manutencao | P2 | backlog | E01 após TASK-0005 |
-| [TASK-0007](TASK-0007-acesso-sql-ouro.md) | Planejar camada SQL de acesso à Ouro | infraestrutura | investigacao | P2 | pronta | E01: comparar Trino e alternativas Apache |
+| [TASK-0007](TASK-0007-acesso-sql-ouro.md) | Planejar engine SQL e catálogo para acesso à Ouro | infraestrutura | investigacao | P2 | pronta | E01: comparar engines e catálogos, incluindo alternativas Apache |
 
 Demandas registradas a partir das solicitações do usuário; classificação secundária no arquivo de cada tarefa.
 

@@ -1,11 +1,11 @@
-# TASK-0007 — Planejar camada SQL de acesso à Ouro
+# TASK-0007 — Planejar engine SQL e catálogo para acesso à Ouro
 
 ## Identificação
 
 - Status: pronta
 - Categoria: infraestrutura
 - Tipo: investigacao
-- Etiquetas: [ouro, sql, trino, apache, iceberg, lakekeeper, rustfs, seguranca, bi]
+- Etiquetas: [ouro, sql, trino, apache, iceberg, lakekeeper, polaris, gravitino, nessie, rustfs, seguranca, bi]
 - Prioridade: P2
 - Complexidade: TEM QUE PENSAR
 - Origem: usuário solicitou camada de acesso à Ouro, sugeriu Trino e aceita alternativas, principalmente Apache.
@@ -18,8 +18,13 @@
 Definir uma engine de consulta SQL para dashboards, aplicações e usuários acessarem
 somente a Ouro, com acesso de leitura e sem receber credenciais do armazenamento.
 É uma camada de acesso/serving sobre a Ouro existente; não é uma nova camada medalhão.
-Preservar Prefect, DuckDB como transformação, Iceberg, catálogo Lakekeeper e RustFS.
-Não substituir o catálogo nem introduzir cópia dos dados para outra base sem decisão explícita.
+Preservar Prefect, DuckDB como transformação, Iceberg e RustFS. Em atualização
+explícita do escopo, o usuário permite avaliar a substituição do Lakekeeper também.
+Lakekeeper é a referência atual, não uma restrição para esta comparação. Não substituir
+catálogo nem introduzir cópia dos dados para outra base sem escolha explícita da solução.
+As TASK-0003 a TASK-0006 preservam o catálogo atual para isolar a migração do storage;
+se a decisão desta tarefa ocorrer antes da implementação delas, revisar seus contratos
+e dependências para evitar implementar e depois descartar integração desnecessária.
 
 Usar Arquitetura de Software e apresentar benefícios/custos antes de escolher.
 Trino é candidato preferencial do usuário, não escolha aprovada. Distinguir licença
@@ -44,6 +49,18 @@ produto Ouro após definição de métricas e necessidade real, sem inventar reg
   multiusuário antes de propor novo serviço. Não presumir equivalência de servidor SQL.
 
 Fontes são ponto de partida, não comprovação de integração nas versões escolhidas.
+Comparar também catálogos e combinações, não apenas engines:
+
+- Lakekeeper: referência que minimiza mudanças; avaliar governança existente.
+- [Apache Polaris com Trino e RustFS](https://polaris.apache.org/guides/trino/):
+  candidato focado em catálogo Iceberg, autenticação e permissões; guia oficial
+  corresponde à combinação proposta, mas não comprova versões locais ou DuckDB.
+- [Apache Gravitino](https://github.com/apache/gravitino): candidato para gestão
+  unificada de múltiplas fontes; ponderar escopo operacional além de Iceberg.
+- [Nessie](https://projectnessie.org/guides/introduction/): considerar se branches,
+  tags e versionamento do catálogo forem requisito; snapshots Iceberg já existentes
+  não justificam sozinhos acrescentar semântica de branches.
+
 Não pontuar desempenho sem workload ou medição. Avaliar versões, licença, projeto
 responsável, maturidade, manutenção, RAM/CPU, concorrência, latência, observabilidade,
 compatibilidade Iceberg (incluindo deletes/snapshots), Lakekeeper e S3 RustFS.
@@ -64,6 +81,8 @@ Esta tarefa não autoriza implantação nem mudanças em produção.
   latência esperada, RAM/CPU e autenticação. Verificar existência de Ouro e se
   preferência Apache significa ASF ou licença permissiva.
 - Produzir matriz de alternativas e recomendação fundamentada para a stack atual.
+  Comparar engine e catálogo como decisões distintas e apresentar combinações
+  recomendadas. A troca do catálogo não garante consultas mais rápidas.
   Separar fatos verificados, premissas e dúvidas que alteram a decisão.
 - Evidência esperada: fontes oficiais, matriz, requisitos e opções apresentados ao usuário.
 - Resultado: pendente; nenhuma engine escolhida.
@@ -76,6 +95,11 @@ Esta tarefa não autoriza implantação nem mudanças em produção.
 - Ações: registrar engine e versão escolhidas; definir topologia Docker, conector
   REST Lakekeeper, storage RustFS, portas, TLS/autenticação, permissões e orçamento
   de recursos. Credenciais de serviço ficam no backend, não com consumidores.
+- Se outro catálogo for escolhido, substituir a referência REST Lakekeeper pelo
+  contrato aprovado e incluir escrita/leitura do DuckDB, autenticação, credenciais,
+  namespaces, UUIDs/localizações, snapshots e migração de registros de tabela.
+  Não apontar dois catálogos independentes para escrever simultaneamente as mesmas
+  tabelas. Definir escritor único, corte, backup e rollback; não basta mudar a URI.
 - Contrato obrigatório: permitir apenas SELECT/metadata autorizados da Ouro;
   impedir leitura de Bronze/Prata e INSERT/UPDATE/DELETE/DDL e procedures de escrita.
   Modo read-only global sozinho não restringe namespaces; definir autorização por
@@ -107,3 +131,5 @@ Esta tarefa não autoriza implantação nem mudanças em produção.
 - Bloqueios futuros: escolha da engine e eventual ausência de produto Ouro.
 - Feito: apenas registro da demanda; Trino não foi instalado ou aprovado como padrão.
 - 2026-11-03 — tarefa registrada durante planejamento da migração RustFS.
+- 2026-11-03 — usuário ampliou comparação para permitir substituir Lakekeeper;
+  incluídos Polaris, Gravitino e Nessie, sem escolha ou migração automática.
