@@ -2,7 +2,7 @@
 
 ## Identificação
 
-- Status: pronta
+- Status: concluida
 - Categoria: infraestrutura
 - Tipo: criacao
 - Etiquetas: [rustfs, polaris, trino, s3, iceberg, arquitetura]
@@ -66,10 +66,48 @@ exceder 5.000 tokens; nenhuma implementação ou destruição de dados nesta tar
 
 ## Aceite e retomada
 
-- [ ] Versões e contratos RustFS/Polaris/Trino/DuckDB fechados com fontes oficiais.
-- [ ] Bootstrap, persistência e papéis escritor/leitor definidos.
-- [ ] Tarefas dependentes implementáveis; nenhum procedimento de migração legado.
+- [x] Versões e contratos RustFS/Polaris/Trino/DuckDB fechados com fontes oficiais.
+- [x] Bootstrap, persistência e papéis escritor/leitor definidos.
+- [x] Tarefas dependentes implementáveis; nenhum procedimento de migração legado.
 - Próxima ação: E01. Validação real do ambiente ocorrerá em TASK-0006/0009.
 - Riscos: versões/autenticação incompatíveis, consumo local de recursos e acesso host/container.
 - Histórico: 2026-11-03 — plano inicial previa migração MinIO; usuário substituiu
   esse escopo por ambiente novo RustFS + Polaris + Trino. Etapas antigas não foram executadas.
+
+## Contrato fechado e QA — 2026-11-03
+
+E01/E02 concluídas por revisão documental. Imagens: rustfs/rustfs:1.0.4,
+apache/polaris:1.8.0, apache/polaris-admin-tool:1.8.0, trinodb/trino:484,
+postgres:16.9-alpine; Prefect/Python/DuckDB mantêm dependências do lock existente.
+Disponibilidade das imagens e interoperabilidade executável serão verificadas na implantação.
+
+S3_ENDPOINT=rustfs:9000 (host localhost:9000), S3_REGION=us-east-1,
+S3_USE_SSL=false apenas rede local, S3_URL_STYLE=path; credenciais S3_ACCESS_KEY e
+S3_SECRET_KEY. SDK minio mantido como cliente S3. DuckDB memory_limit=128MB,
+threads=1 e temporários em disco configuráveis; não compartilhar conexão entre runs.
+
+ICEBERG_CATALOG_ENDPOINT=http://polaris:8181/api/catalog (host localhost:8181),
+ICEBERG_WAREHOUSE=prefect, ICEBERG_CATALOG_NAME=lakehouse; OAuth2 no endpoint
+/api/catalog/v1/oauth/tokens, scope PRINCIPAL_ROLE:ALL. Credenciais distintas
+POLARIS_CLIENT_ID/SECRET do escritor, POLARIS_READER_CLIENT_ID/SECRET do leitor e
+POLARIS_ROOT_CLIENT_ID/SECRET do bootstrap. TOKEN recebido em memória no DuckDB;
+renovar antes da expiração ao acessar catálogo. Acesso S3 estático no backend;
+credential vending/STS desabilitados nesta entrega, reduzindo dependências.
+
+Persistência relational-jdbc PostgreSQL com volume novo; admin-tool bootstrap do
+realm POLARIS antes do servidor, seguido de bootstrap API idempotente de buckets,
+catálogo, principal-roles e catalog-roles, namespaces prata_camara_deputados e
+ouro_camara_deputados. Escritor gerencia conteúdo; leitor só lista catálogo e lê
+Ouro. Trino adiciona regras SQL deny-by-default e autenticação de consumidor.
+HTTP local apenas em loopback; exposição externa exige TLS em camada própria.
+
+Trino, Polaris, PostgreSQL e RustFS permanecem ligados. Prefect em profile processing,
+concorrência 1; agenda externa dispara batch e desliga somente após runs terminais.
+Limites de memória serão explícitos, com meta de 2GB para toda a máquina, não
+promessa de capacidade. TASK-0010 mede pico e automatiza janela sem desligar Trino.
+
+Fontes: https://polaris.apache.org/guides/jdbc/ e /guides/trino/;
+https://raw.githubusercontent.com/apache/polaris/main/spec/polaris-management-service.yml;
+https://docs.rustfs.com/en/administration/protocols/s3;
+https://trino.io/docs/current/connector/iceberg.html.
+QA: critérios documentais atendidos; flows e RAM não foram validados nesta tarefa.

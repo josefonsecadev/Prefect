@@ -10,13 +10,14 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 |---|---|---|---|---|---|---|
 | [TASK-0001](TASK-0001-controle-tasks.md) | Criar controle de tarefas do projeto | agentes | melhoria | P2 | concluida | Nenhuma |
 | [TASK-0002](TASK-0002-avaliar-storage-s3.md) | Decidir substituto do MinIO | infraestrutura | investigacao | P2 | concluida | RustFS escolhido; seguir TASK-0003 |
-| [TASK-0003](TASK-0003-contratos-rustfs.md) | Fechar contratos RustFS + Polaris + Trino | infraestrutura | criacao | P2 | pronta | E01: versões e conexões do ambiente novo |
+| [TASK-0003](TASK-0003-contratos-rustfs.md) | Fechar contratos RustFS + Polaris + Trino | infraestrutura | criacao | P2 | concluida | Contrato fechado; executar TASK-0004 |
 | [TASK-0004](TASK-0004-codigo-s3-rustfs.md) | Adaptar código para RustFS e Polaris | dados | melhoria | P2 | backlog | E01 após TASK-0003 |
 | [TASK-0005](TASK-0005-infra-dados-rustfs.md) | Provisionar RustFS e Polaris do zero | docker | criacao | P2 | backlog | E01 após TASK-0004 |
 | [TASK-0006](TASK-0006-validar-documentar-rustfs.md) | Validar flows no ambiente novo RustFS + Polaris | pipelines | manutencao | P2 | backlog | E01 após TASK-0005 |
 | [TASK-0007](TASK-0007-acesso-sql-ouro.md) | Escolher arquitetura de acesso SQL à Ouro | infraestrutura | investigacao | P2 | concluida | Trino + Polaris aprovados; execução nas tasks |
 | [TASK-0008](TASK-0008-implantar-trino.md) | Implantar Trino com Polaris e RustFS | infraestrutura | criacao | P2 | backlog | E01 após TASK-0003/0005 |
 | [TASK-0009](TASK-0009-produto-ouro-consumo.md) | Publicar Ouro e validar consumo pelo Trino | dados | criacao | P2 | backlog | E01 após TASK-0003; definir produto Ouro |
+| [TASK-0010](TASK-0010-janela-processamento.md) | Automatizar Prefect e medir orçamento de 2GB | orquestracao | criacao | P2 | backlog | Implementar após TASK-0005; validar com TASK-0009 |
 
 Demandas registradas a partir das solicitações do usuário; classificação secundária no arquivo de cada tarefa.
 
