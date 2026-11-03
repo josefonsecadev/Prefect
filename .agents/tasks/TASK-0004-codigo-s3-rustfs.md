@@ -2,7 +2,7 @@
 
 ## Identificação
 
-- Status: backlog
+- Status: em_execucao
 - Categoria: dados
 - Tipo: melhoria
 - Etiquetas: [rustfs, polaris, s3, duckdb, python, iceberg]
@@ -57,6 +57,11 @@ reprodução completa após integração em TASK-0006.
 - Resultado: pendente.
 
 ## Aceite e retomada
+
+E01 implementada: Config valida S3, OAuth2, TLS, região e limites DuckDB; exemplo
+do host atualizado sem credenciais reais. QA documental/diff aprovado; sem alegar
+flow executado. E02/E03 em andamento. Python do host não possui dependências;
+Docker Desktop foi iniciado, mas engine ainda não respondeu.
 
 - [ ] Acesso S3 e attach Polaris implementados conforme contrato.
 - [ ] Chamadores e debug consistentes; nenhuma dependência do servidor/catálogo antigo.
