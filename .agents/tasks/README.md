@@ -9,8 +9,9 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | ID | Tarefa | Categoria | Tipo | Prioridade | Status | Próxima etapa |
 |---|---|---|---|---|---|---|
 | [TASK-0001](TASK-0001-controle-tasks.md) | Criar controle de tarefas do projeto | agentes | melhoria | P2 | concluida | Nenhuma |
+| [TASK-0002](TASK-0002-avaliar-storage-s3.md) | Decidir substituto do MinIO | infraestrutura | investigacao | P2 | bloqueada | E02: definir requisitos e escolher com o usuário |
 
-Nenhuma pendência técnica adicional foi levantada ou presumida nesta entrega.
+Demandas registradas a partir das solicitações do usuário; classificação secundária no arquivo de cada tarefa.
 
 ## Classificação
 
