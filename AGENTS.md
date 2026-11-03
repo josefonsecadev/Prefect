@@ -34,11 +34,20 @@ Skills são guias passo a passo para tarefas específicas. Quando a necessidade 
 |-------|---------------------------|---------|
 | Arquitetura de Software | planejamento para alteração ou criação de uma solução que abrange todo o projeto | `.agents/skills/arquiteto-software/SKILL.md` |
 | Engenharia de Dados | implementação, alteração, diagnóstico e execução local de flows Prefect para coleta, transformação e publicação de dados | `.agents/skills/engenheiro-dados/SKILL.md` |
+| Gestão de Tasks | registrar, classificar, dividir, priorizar, executar e retomar tarefas do projeto | `.agents/skills/gestao-tasks/SKILL.md` |
 | Graphifyy | consulta auxiliar do grafo de conhecimento do código, arquitetura, relações entre arquivos e navegação do projeto | `.codex/skills/graphify/SKILL.md` |
 | Analista de Qualidade | avaliação das alterações no código e escrita de commits quando solicitada | `agents/skills/qa/SKILL.md` |
 | Arquiteto de Banco de Dados | planejamento para criação ou alteração das camadas de dados como datalake, lakehouse, duckdb | `agents/skills/arquiteto_banco/SKILL.md` |
 
 Se nenhuma skill se aplicar, apresente soluções baseado no conteúdo deste arquivo
+
+## Controle de tarefas do projeto
+
+- O backlog fica em `.agents/tasks/README.md`; cada tarefa possui arquivo próprio nesse diretório, baseado em `.agents/tasks/TEMPLATE.md`.
+- Para demandas de alteração, consulte o índice e use a skill Gestão de Tasks antes de implementar. Perguntas informativas não exigem criar tarefa.
+- Registre a demanda antes de executar e mantenha contexto, etapas, status, evidências e próximo passo atualizados para permitir retomada em outro chat.
+- Cada etapa deve estimar no máximo 5.000 tokens e alterar no máximo cinco arquivos, incluindo arquivos de controle. Divida etapas maiores antes de executá-las.
+- As tasks deste controle são itens de trabalho do projeto; não são as funções `@task` do Prefect.
 
 ## Como você se comporta
 
