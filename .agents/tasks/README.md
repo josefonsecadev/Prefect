@@ -9,10 +9,12 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | ID | Tarefa | Categoria | Tipo | Prioridade | Status | Próxima etapa |
 |---|---|---|---|---|---|---|
 | [TASK-0001](TASK-0001-controle-tasks.md) | Criar controle de tarefas do projeto | agentes | melhoria | P2 | concluida | Nenhuma |
-| [TASK-0002](TASK-0002-avaliar-storage-s3.md) | Decidir substituto do MinIO | infraestrutura | investigacao | P2 | bloqueada | E02: definir requisitos e escolher com o usuário |
+| [TASK-0002](TASK-0002-avaliar-storage-s3.md) | Decidir substituto do MinIO | infraestrutura | investigacao | P2 | concluida | RustFS escolhido; seguir TASK-0003 |
 | [TASK-0003](TASK-0003-contratos-rustfs.md) | Fechar contratos da migração para RustFS | infraestrutura | manutencao | P2 | pronta | E01: inventário e contratos S3 |
 | [TASK-0004](TASK-0004-codigo-s3-rustfs.md) | Adaptar acesso aos dados para RustFS | dados | melhoria | P2 | backlog | E01 após TASK-0003 |
 | [TASK-0005](TASK-0005-infra-dados-rustfs.md) | Migrar infraestrutura e dados para RustFS | docker | manutencao | P2 | backlog | E01 após TASK-0004 |
+| [TASK-0006](TASK-0006-validar-documentar-rustfs.md) | Validar flows e consolidar RustFS como padrão | pipelines | manutencao | P2 | backlog | E01 após TASK-0005 |
+| [TASK-0007](TASK-0007-acesso-sql-ouro.md) | Planejar camada SQL de acesso à Ouro | infraestrutura | investigacao | P2 | pronta | E01: comparar Trino e alternativas Apache |
 
 Demandas registradas a partir das solicitações do usuário; classificação secundária no arquivo de cada tarefa.
 

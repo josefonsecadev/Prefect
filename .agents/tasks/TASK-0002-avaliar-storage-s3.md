@@ -2,7 +2,7 @@
 
 ## Identificação
 
-- Status: bloqueada
+- Status: concluida
 - Categoria: infraestrutura
 - Tipo: investigacao
 - Etiquetas: [s3, minio, rustfs, garage, seaweedfs, docker, iceberg, lakekeeper]
@@ -47,7 +47,7 @@ Fatos confirmados na inspeção:
 | SeaweedFS | Apache-2.0; arquitetura master, volume, filer e acesso S3 | Candidato preferencial preliminar para priorizar histórico operacional, aceitando mais conceitos de operação |
 
 A preferência é julgamento arquitetural, não benchmark nem compatibilidade validada.
-Nenhuma opção foi escolhida. Ausência de bucket versioning no Garage não equivale
+Comparação encerrada: o usuário escolheu RustFS em 2026-11-03. Ausência de bucket versioning no Garage não equivale
 à ausência de snapshots Iceberg; são mecanismos diferentes. Compatibilidade deve
 ser confirmada na versão exata, com o Lakekeeper 0.12.1 usado no projeto.
 
@@ -69,9 +69,9 @@ confirmado que esse código tenha deixado de ser open source.
 ## Critérios de aceite
 
 - [x] Comparação baseada em fontes oficiais e integração atual inspecionada.
-- [ ] Requisitos de ambiente, disponibilidade e preservação esclarecidos.
-- [ ] Usuário escolheu a alternativa e os motivos foram registrados.
-- [ ] Próxima tarefa de migração definida em etapas de até 5.000 tokens e cinco arquivos.
+- [x] Requisitos de planejamento delimitados: preservar dados e topologia local; detalhes operacionais a fechar na TASK-0003.
+- [x] Usuário escolheu RustFS para ser o armazenamento padrão, mantendo demais componentes.
+- [x] Migração dividida nas TASK-0003 a TASK-0006, com até 5.000 tokens e cinco arquivos por etapa.
 
 ## Etapas
 
@@ -88,25 +88,26 @@ confirmado que esse código tenha deixado de ser open source.
 
 ### E02 — Fechar escolha e delimitar migração
 
-- Status: bloqueada
+- Status: concluida
 - Estimativa: 3.000 tokens.
 - Premissas: usuário informa requisitos operacionais e decide entre as alternativas.
 - Dependências: E01 e respostas do usuário.
 - Arquivos previstos: este registro, índice e eventual tarefa de migração (três arquivos).
 - Entrega: decisão com critérios e tarefa posterior delimitada, sem migrar durante a discussão.
 - Validação: escolha explícita registrada; etapas futuras dentro dos limites.
-- Resultado e evidências: pendente.
+- Resultado e evidências: escolha explícita do usuário; migração planejada nas TASK-0003 a TASK-0006. Desdobramento realizado em duas entregas documentais de até cinco arquivos, com dependências e limites por etapa.
 
 ## Retomada
 
-- Próxima etapa: E02.
-- Feito: pesquisa e comparação preliminar; armazenamento atual preservado.
-- Próxima ação: confirmar se o alvo é ambiente local ou produção e quais dados precisam ser preservados.
-- Bloqueio: decisão arquitetural conjunta pendente; retomar com requisitos e escolha do usuário.
-- Validação pendente: decisão; reprodução de flows será aceite da futura migração.
+- Próxima etapa: nenhuma nesta tarefa.
+- Feito: RustFS escolhido e migração decomposta; armazenamento atual preservado.
+- Próxima ação: TASK-0003/E01.
+- Bloqueio: nenhum para a decisão; detalhes de implementação na TASK-0003.
+- Validação pendente: reprodução de flows é aceite da migração, não desta investigação.
 
 ## Histórico
 
 | Data | Evento | Evidência/motivo |
 |---|---|---|
 | 2026-11-03 | Registrada investigação; E01 concluída, E02 aguardando usuário | Pedido explícito de decidir juntos; fontes e integração inspecionadas |
+| 2026-11-03 | Usuário escolheu RustFS; investigação concluída | Decisão explícita e planejamento TASK-0003 a TASK-0006; nenhuma migração executada |
