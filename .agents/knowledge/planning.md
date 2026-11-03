@@ -23,6 +23,27 @@ PostgreSQL é uma dependência interna do Lakekeeper e não deve receber regras 
 
 ## Arquitetura de dados
 
+### Decisão aprovada: migração do armazenamento para RustFS
+
+Em 2026-11-03, o usuário escolheu RustFS como padrão de armazenamento S3.
+A implementação atual ainda utiliza MinIO; as descrições existentes neste
+documento representam esse estado até a conclusão da migração.
+
+- Planejamento e execução rastreados em TASK-0003 a TASK-0006, em `.agents/tasks/`.
+- Preservar Prefect, DuckDB, Iceberg, Lakekeeper, PostgreSQL, contratos dos flows,
+  nomes de buckets, chaves de objetos, namespaces, tabelas, partições e snapshots.
+- Manter a topologia local de uma máquina em Docker; não introduzir cluster ou
+  promessas de alta disponibilidade que essa topologia não oferece.
+- RustFS terá volume próprio; não montar nele o diretório interno do MinIO.
+  Dados existentes serão inventariados e preservados via migração pela API S3.
+- Usar configuração S3 explícita (endpoint, credenciais, região, TLS e path-style),
+  padrão apontando para RustFS. Congelar escritas no corte e preservar rollback.
+- Perfil e credenciais do warehouse Lakekeeper existente devem ser atualizados
+  por sua API suportada; não recriar catálogo nem ignorar divergências com HTTP 409.
+- Não há autorização para descartar dados ou atualizar componentes alheios à troca.
+- TASK-0003 fecha versão/imagem RustFS, SDK, bootstrap e detalhes operacionais
+  antes da implementação; TASK-0006 comprova flows completos e idempotência.
+
 O projeto segue a arquitetura medalhão:
 
 ```text
