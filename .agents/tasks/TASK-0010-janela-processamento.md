@@ -43,3 +43,8 @@ processing, espera de prontidão, flows síncronos sequenciais e desligamento so
 após checagem de runs ativos. Recusa assumir Prefect previamente ligado. Trino/base
 não são parados. Coleta amostras de memória no diretório ignorado `.prefect/runtime`.
 Ainda falta E02 real; Docker indisponível, portanto task não concluída.
+
+QA: batch usa `compose run --rm prefect-worker` como executor de uso único;
+não mantém poller adicional junto do processo do flow. O serviço worker tradicional
+continua disponível para deployments manuais. Checagem final usa Server, que só
+para se não houver runs ativos. Essa opção reduz duplicação de processos Python.

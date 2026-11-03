@@ -93,6 +93,9 @@ Deixe a base e o Trino ligados e Prefect desligado antes de iniciar:
 
 O batch recusa duplicação por trava local, inicia Prefect, executa legislaturas
 como pré-requisito e depois os dois produtos (deputados e despesas), em sequência.
+Na janela automática, o executor usa `compose run --rm` com a imagem do worker,
+sem manter outro processo de polling simultâneo. Deployments pela interface usam
+o serviço worker tradicional iniciado manualmente.
 Só para Worker/Server após confirmar ausência de runs ativos. Em dúvida, deixa
 Prefect ligado e retorna falha. Trino e sua base permanecem ativos.
 

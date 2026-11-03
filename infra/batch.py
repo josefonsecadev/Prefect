@@ -53,13 +53,13 @@ def main():
         monitor.start()
         started = True
         compose("up", "-d", "--no-deps", "--wait", "--wait-timeout", "180", "prefect-server")
-        compose("up", "-d", "--no-deps", "prefect-worker")
-        # Execução síncrona: o desligamento depende da saída, nunca de um horário fixo.
-        compose("exec", "-T", "prefect-worker", "python", "-m", "infra.daily_flows", "--year", str(args.year))
+        # Um único processo de execução: não manter poller + driver + flow ao mesmo tempo.
+        compose("run", "--rm", "--no-deps", "-T", "prefect-worker",
+                "python", "-m", "infra.daily_flows", "--year", str(args.year))
     finally:
         try:
             if started:
-                check = compose("exec", "-T", "prefect-worker", "python", "-m", "infra.daily_flows", "--check-idle", check=False)
+                check = compose("exec", "-T", "prefect-server", "python", "-m", "infra.daily_flows", "--check-idle", check=False)
                 if check.returncode == 0:
                     compose("stop", "-t", "60", "prefect-worker")
                     compose("stop", "-t", "60", "prefect-server")
