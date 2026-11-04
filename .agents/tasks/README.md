@@ -19,6 +19,10 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | [TASK-0009](TASK-0009-produto-ouro-consumo.md) | Publicar Ouro e validar consumo pelo Trino | dados | criacao | P2 | bloqueada | Docker ativo; validar despesas mensais implementadas |
 | [TASK-0010](TASK-0010-janela-processamento.md) | Automatizar Prefect e medir orçamento de 2GB | orquestracao | criacao | P2 | bloqueada | Docker ativo; executar batch e medir pico real |
 
+| [TASK-0011](TASK-0011-diagnostico-docker-recursos.md) | Diagnosticar stack Docker e recursos | observabilidade | investigacao | P2 | concluida | Diagnóstico entregue; stack instável; seguir TASK-0012 |
+| [TASK-0012](TASK-0012-capacidade-wsl.md) | Ajustar capacidade do WSL | infraestrutura | melhoria | P1 | backlog | Planejar orçamento e articular TASK-0010 |
+| [TASK-0013](TASK-0013-reduzir-imagem-python.md) | Reduzir imagem Python | docker | melhoria | P2 | backlog | Medir camadas da imagem nova |
+| [TASK-0014](TASK-0014-retencao-docker.md) | Definir retenção de imagens e cache | docker | manutencao | P2 | backlog | Classificar candidatos sem apagar dados |
 Demandas registradas a partir das solicitações do usuário; classificação secundária no arquivo de cada tarefa.
 
 Arquitetura aprovada: **Prefect + DuckDB + RustFS + Iceberg + Apache Polaris + Trino**.
@@ -28,6 +32,7 @@ automação implementados, mas ainda sem aceite executável por falha do Docker 
 Sequência principal: 0003 → 0004 →
 0005 → 0006; Trino (0008) pode ser configurado após 0005. Produto Ouro/aceite completo
 (0009) exige 0006 e 0008; seu contrato de negócio pode ser definido após 0003.
+
 
 ## Classificação
 
