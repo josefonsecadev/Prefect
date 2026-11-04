@@ -46,4 +46,3 @@ O host possui 15,29 GiB físicos. .wslconfig limita WSL a 1 GiB e quatro CPUs; E
 | Data | Evento | Evidência |
 |---|---|---|
 | 2026-11-04 | Registrada otimização | VM limitada a 1GiB |
-

@@ -46,4 +46,3 @@ Dockerfile conserva build-essential e Poetry na imagem final, faz duas instalaç
 | Data | Evento | Evidência |
 |---|---|---|
 | 2026-11-04 | Registrada otimização | Compiladores/Poetry permanecem no runtime |
-
