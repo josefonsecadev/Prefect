@@ -1,0 +1,22 @@
+<clickhouse>
+  <profiles>
+    <default>
+      <allow_database_iceberg>1</allow_database_iceberg>
+    </default>
+    <readonly>
+      <readonly>1</readonly>
+      <allow_database_iceberg>1</allow_database_iceberg>
+    </readonly>
+  </profiles>
+  <users>
+    <analista>
+      <password from_env="CLICKHOUSE_READONLY_PASSWORD"/>
+      <networks>
+        <ip>0.0.0.0/0</ip>
+      </networks>
+      <profile>readonly</profile>
+      <quota>default</quota>
+      <access_management>0</access_management>
+    </analista>
+  </users>
+</clickhouse>

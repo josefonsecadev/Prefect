@@ -1,165 +1,66 @@
 # Lakehouse da Câmara dos Deputados
 
-Pipelines Python/Prefect coletam dados da Câmara, transformam com DuckDB e publicam
-tabelas Iceberg no RustFS, registradas no Apache Polaris. Trino disponibiliza SQL
-somente de leitura da Ouro. PostgreSQL guarda apenas o estado interno do Polaris.
+Pipelines Python/Prefect coletam dados da Câmara, transformam com DuckDB e
+publicam tabelas Iceberg no RustFS. Nessie mantém o catálogo Iceberg REST e
+ClickHouse oferece consultas SQL de leitura para consumidores.
 
 ```text
-Fontes → Bronze (RustFS) → Prata (Iceberg) → Ouro (Iceberg) → Trino → consumidor
-                               catálogo: Apache Polaris
+Fontes → Bronze (RustFS) → Prata/Ouro (Iceberg no RustFS)
+                                  ↑ catálogo Nessie
+                                  ↓ consultas SQL
+                              ClickHouse
 ```
 
-## Estado da entrega
+## Estado
 
-Implementação em andamento. Configuração revisada com `docker compose config --quiet`;
-flows completos, bootstrap, reinicialização, permissões SQL e orçamento de 2GB
-ainda exigem validação real. A indisponibilidade do backend Docker no host impediu
-esses aceites até o momento. Consulte [.agents/tasks/README.md](.agents/tasks/README.md).
-Não interpretar os limites de memória abaixo como capacidade comprovada.
+A substituição de Polaris/PostgreSQL/Trino por Nessie/ClickHouse está em andamento
+(TASK-0025). Integrações de Iceberg com Nessie e ClickHouse devem ser validadas no
+ambiente Docker; confira o estado atualizado em [.agents/tasks/README.md](.agents/tasks/README.md).
+Os limites de memória do Compose ainda não comprovam capacidade total de 2GB.
 
-Bloqueio registrado no host Windows: Docker Desktop falha ao inicializar o socket
-`dockerInference`; engine Linux não responde. Reparar o Docker é pré-requisito para
-executar o setup e validar as tasks. Nenhum volume antigo foi apagado.
+O flow de Legislaturas já grava Iceberg pelo Nessie. O ClickHouse lista a tabela,
+mas a leitura via catálogo falha com HTTP 403 no RustFS por uma incompatibilidade
+aberta no `DataLakeCatalog`; portanto, o acesso SQL às tabelas ainda não está pronto.
 
-## Instalação nova
+## Configuração
 
-### Execução incremental com Parquet direto no RustFS
+O projeto usa um `.env` fixo, ignorado pelo Git. Preserve o arquivo e as credenciais
+locais existentes. Em nova instalação, copie `.env.example` para `.env` e configure
+os segredos de RustFS/S3 e ClickHouse. `S3_ACCESS_KEY`/`S3_SECRET_KEY` precisam ter
+acesso de leitura e escrita ao bucket `iceberg`; `RUSTFS_ACCESS_KEY`/
+`RUSTFS_SECRET_KEY` são as credenciais administrativas do serviço. Não versionar
+`.env`, certificados ou chaves.
 
-Para a validação de coleta/transformação sem Polaris ou Trino, configure no `.env`
-local `PIPELINE_STORAGE_FORMAT=parquet`. O padrão da arquitetura continua `iceberg`.
-O modo Parquet dispensa credenciais e autenticação do catálogo; os buckets
-`bronze`, `prata` e `ouro` devem existir no RustFS, com acesso S3 pelo `.env`.
-Suba somente os serviços necessários, sem iniciar bootstraps do catálogo:
-
-```powershell
-docker compose --profile processing up -d --no-deps rustfs prefect-server
-```
-
-O host deve usar `S3_ENDPOINT=localhost:9000` e
-`PREFECT_API_URL=http://127.0.0.1:4200/api`. Os perfis VS Code dos três flows usam
-esses endpoints e modo Parquet. Sem adaptador de debug disponível, execute os
-mesmos orquestradores com `.venv/Scripts/python.exe`, uma execução por vez:
-
-```powershell
-$env:PIPELINE_STORAGE_FORMAT='parquet'
-$env:S3_ENDPOINT='localhost:9000'
-$env:PREFECT_API_URL='http://127.0.0.1:4200/api'
-./.venv/Scripts/python.exe -m pipelines.camara_deputados.legislaturas.orquestrador
-./.venv/Scripts/python.exe -c "from pipelines.camara_deputados.deputados.orquestrador import executar_pipeline_deputados; executar_pipeline_deputados(ano_inicial=2025, ano_final=2025)"
-./.venv/Scripts/python.exe -c "from pipelines.camara_deputados.despesas.orquestrador import executar_pipeline_despesas; executar_pipeline_despesas(year=2025)"
-```
-
-Não prossiga para Deputados se Legislaturas falhar. Bronze mantém o contrato
-existente: Legislaturas em Parquet, Deputados em JSON paginado e Despesas em ZIP
-CSV. Prata/Ouro são gravadas em
-`s3://<camada>/<projeto>/<pipeline>/<tabela>/<coluna>=<recorte>/data.parquet`;
-tabelas integrais não possuem o trecho de partição. Escrita serial substitui
-somente a chave do recorte, valida schema/contagem local e relê o Parquet remoto.
-Não oferece transações multiobjeto nem snapshots do Iceberg.
-
-Para usar deployments com o código atual:
-
-```powershell
-docker compose --profile processing build prefect-worker
-docker compose --profile processing up -d --no-deps prefect-worker
-```
-
-Estado real em 2026-11-04, registrado na TASK-0019: Worker registrou deployments e
-conectou; Despesas 2025 concluiu Bronze/Prata e publicou 209.081 linhas na Prata.
-Ouro falhou por 937 despesas de lideranças sem ID de deputado; tratamento de
-negócio ainda pendente, nenhum descarte aplicado. Legislaturas falhou por 504 da
-API e Deputados pela ausência da Prata de Legislaturas. Portanto, a versão completa
-dos flows ainda não tem aceite; não interpretar arquivos publicados como sucesso
-do orquestrador inteiro. Catálogo/Trino não foram validados nesta fase.
+O novo warehouse Nessie usa `s3://iceberg/nessie-warehouse`, separado dos objetos
+legados em `s3://iceberg/warehouse`. Volumes antigos de PostgreSQL/Polaris, se
+existirem, não são montados nem removidos. Não execute `down -v` para reiniciar.
 
 Pré-requisitos: Docker com engine Linux, Compose V2, Python 3.14.6 e Poetry para
-debug no host. Não é necessário copiar dados ou catálogos do ambiente anterior.
-Novos volumes são usados; MinIO e Lakekeeper não integram o Compose padrão.
-
-No PowerShell, na raiz do projeto:
+execução/debug no host.
 
 ```powershell
 $env:POETRY_VIRTUALENVS_IN_PROJECT='true'
 poetry install --no-root
-```
-
-O ambiente utiliza um `.env` local fixo, preenchido antes de iniciar o Compose.
-Na instalação existente, preserve esse arquivo e suas credenciais. Para uma nova
-instalação, copie `.env.example` para `.env`, preencha os segredos administrativos,
-SQL e `TRINO_INTERNAL_SECRET` com valores próprios e configure `S3_ACCESS_KEY`/`S3_SECRET_KEY` com os mesmos
-valores de `RUSTFS_ACCESS_KEY`/`RUSTFS_SECRET_KEY`. Não há geração automática de `.env`.
-Nunca versionar `.env`, runtime, certificados ou chaves.
-
-### Instalação inicial (somente em ambiente novo)
-
-Antes do primeiro `up` completo, execute as etapas explícitas:
-
-```powershell
-docker compose up -d rustfs polaris-db
-docker compose --profile installation run --rm polaris-bootstrap
-docker compose up -d polaris
-# Aguarde Polaris ficar healthy em docker compose ps.
-./.venv/Scripts/python.exe -m infra.provision
-./.venv/Scripts/python.exe -m infra.prepare_trino
 docker compose --profile processing up --build -d
 ```
 
-`infra.provision` cria buckets, catálogo, namespaces e permissões. O Polaris emite
-as credenciais dos novos usuários; o comando as salva diretamente no `.env`.
-Em recursos existentes, preserva as credenciais e verifica sua autenticação.
-O catálogo usa `S3_INTERNAL_ENDPOINT` (padrão `rustfs:9000`) para acesso entre containers.
-O comando no host usa `S3_ENDPOINT` e `ICEBERG_CATALOG_ENDPOINT` locais.
-
-`infra.prepare_trino` prepara o hash da senha SQL e o certificado TLS local; não
-sobrescreve o certificado existente. Execute-o novamente ao mudar a senha SQL.
-Se alterar `TRINO_USER`, ajuste também as regras em `infra/trino/rules.json`.
-
-### Inicialização diária
+O Compose inicia RustFS, Nessie, ClickHouse, Prefect Server e Worker. Server e
+Worker permanecem ligados; deployments são registrados pelo Worker. Para verificar:
 
 ```powershell
-docker compose --profile processing up -d
+docker compose --profile processing ps
 ```
 
-O startup não provisiona catálogo nem gera configurações. Arquivos estáticos do
-Trino ficam em `infra/trino`, com referências `${ENV:...}` para segredos do `.env`.
-Não repita a instalação JDBC em volumes existentes. Preserve `.env` e backups:
-credenciais perdidas exigem recuperação ou rotação explícita.
+Endpoints locais: Prefect `http://localhost:4200`, Nessie
+`http://localhost:19120/iceberg`, ClickHouse HTTP `localhost:8123`, ClickHouse
+Native `localhost:9002`, RustFS S3 `localhost:9000` e console `localhost:9001`.
+Dentro dos containers, os hosts são `prefect-server`, `nessie` e `rustfs`.
 
-O SDK Python `minio` permanece como cliente S3; não é necessário servidor MinIO.
-No perfil local, credenciais de armazenamento são compartilhadas apenas pelos
-backends confiáveis; identidades Polaris de escritor, leitor e administrador são
-distintas. Consumidor SQL não recebe credenciais S3. Portas ficam em loopback;
-publicação externa exige configuração própria de TLS e rede.
+## Flows
 
-## Serviços e persistência
-
-| Serviço | Disponibilidade | Acesso local |
-|---|---|---|
-| RustFS | Permanente | API localhost:9000; console localhost:9001 |
-| Polaris | Permanente | http://localhost:8181/api/catalog |
-| PostgreSQL | Permanente | Rede Docker, sem porta publicada |
-| Trino | Permanente | https://localhost:8080 |
-| Prefect Server | Permanente | http://localhost:4200 |
-| Prefect Worker | Permanente | Sem porta publicada |
-
-Volumes nomeados novos: rustfs-data, polaris-db-data e prefect-data. Os arquivos
-`.prefect/runtime/trino/server.pem` e `password.db`, junto com o `.env`, também são
-persistência operacional: guardar protegidos junto com backup do catálogo/storage.
-Os arquivos antigos `writer.env` e `reader.env` não são mais usados.
-
-## Executar e depurar flows
-
-```powershell
-docker compose --profile processing up -d prefect-worker
-```
-
-As dependências iniciam Server e Polaris; a instalação deve estar preparada. No VS Code, usar os perfis
-de `.vscode/launch.json`, `.venv` e `.env`. No host, endpoints são localhost; dentro
-do Docker, `rustfs:9000`, `polaris:8181` e `prefect-server:4200`.
-
-Executar legislaturas antes de deputados. Despesas executa Bronze → Prata → Ouro.
-Os deployments ficam em `prefect.yaml`, com concorrência do pool limitada a um.
-Exemplo com o mesmo entrypoint e ambiente do perfil de debug:
+Os perfis do VS Code em `.vscode/launch.json` usam o `.env` e o ambiente `.venv`.
+Execute um flow por vez. Legislaturas deve preceder Deputados. Despesas percorre
+Bronze → Prata → Ouro.
 
 ```powershell
 ./.venv/Scripts/python.exe -m pipelines.camara_deputados.legislaturas.orquestrador
@@ -167,52 +68,46 @@ Exemplo com o mesmo entrypoint e ambiente do perfil de debug:
 ./.venv/Scripts/python.exe -m pipelines.camara_deputados.despesas.orquestrador
 ```
 
-## Operação contínua do Prefect
-
-Mantenha Server e Worker ativos com o comando da seção anterior. O profile
-`processing` continua necessário no Compose para iniciar esses serviços.
-Execute os deployments pelo Prefect; não há executor externo que ligue ou desligue
-o servidor por janela. Respeite os pré-requisitos entre pipelines e execute um flow
-por vez. Os scripts de execução por janela foram removidos; não há coleta automática
-de memória por esse mecanismo.
-
-Para avaliar capacidade, medir memória total do host, OOM e pico real durante
-consultas/flows: somar limites de
-containers não comprova que a máquina toda cabe em 2GB. DuckDB usa uma thread,
-128MB de limite interno e temporários em disco; Python/buffers ficam fora desse limite.
+O formato `PIPELINE_STORAGE_FORMAT=iceberg` usa Nessie. O modo `parquet` legado
+publica arquivos diretamente e não oferece catálogo ou snapshots Iceberg. Em
+execuções anteriores (TASK-0019), Despesas 2025 concluiu Bronze/Prata, mas Ouro
+falhou para 937 registros sem ID de deputado; Legislaturas e Deputados também
+falharam na API/pré-requisitos. Esses resultados não validam os flows completos.
 
 ## Consultar a Ouro
 
-Após bootstrap e publicação real do flow de despesas:
+O acesso por nome no catálogo ClickHouse/Nessie ainda não está disponível. A leitura
+Iceberg direta foi validada com `icebergS3()` usando o caminho completo da tabela no
+RustFS e o usuário administrativo do ClickHouse. Exemplo:
 
-```powershell
-docker compose exec trino trino --server https://localhost:8443 --insecure --user analista --password
+```sql
+SELECT count(), min(id), max(id)
+FROM icebergS3('http://rustfs:9000/iceberg/nessie-warehouse/<namespace>/<tabela>/');
 ```
 
-`--insecure` é restrito ao certificado local autogerado. Para uso externo, instalar
-certificado confiável e remover essa opção. A senha está no `.env` local.
+O teste na tabela `prata_camara_deputados.legislaturas` retornou 57 linhas (IDs 1–57).
+O perfil `analista` não pode executar essa função em `readonly=1`; não compartilhe
+credenciais administrativas com consumidores. A descoberta automática do path pelo
+Nessie e a exposição somente leitura por nome continuam pendentes na TASK-0025.
+
+Quando esse acesso estiver pronto, a consulta esperada da Ouro será:
 
 ```sql
 SELECT ano, mes, deputado_id, nome_deputado,
        quantidade_lancamentos, valor_liquido
-FROM ouro.ouro_camara_deputados.despesas_mensais
+FROM lakehouse.`ouro_camara_deputados.despesas_mensais`
 WHERE ano = 2025
 ORDER BY valor_liquido DESC;
 ```
 
-Valor líquido é a soma decimal de `vlrLiquido`, incluindo negativos, sem descontar
-glosa novamente. Quantidade representa lançamentos, não documentos distintos.
-Reprocessamento substitui somente o ano solicitado. Credenciais SQL de consumo
-devem negar Prata, DML, DDL e procedures mutáveis; validação real ainda pendente.
+O catálogo ClickHouse é configurado como leitura; consumidores SQL não recebem
+credenciais S3. Confirme a compatibilidade de autenticação e do catálogo na versão
+fixada antes de oferecer acesso fora do host local.
 
-## Encerrar
+## Dados e manutenção
 
-Server e Worker devem permanecer ligados na operação normal. Para uma parada
-manual de manutenção, primeiro confirmar runs terminais:
-
-```powershell
-docker compose --profile processing stop prefect-worker prefect-server
-```
-
-`docker compose stop` para toda a stack preserva dados. Não é necessário remover
-volumes para reiniciar; `down -v` remove persistência e não é rotina operacional.
+Volumes nomeados: `rustfs-data`, `nessie-data`, `clickhouse-data` e `prefect-data`.
+O warehouse Nessie é novo; os objetos e o catálogo legado permanecem preservados,
+mas não são importados automaticamente. Faça backup antes de operações de
+manutenção. `docker compose stop` preserva os dados; não remova volumes para
+reiniciar serviços.

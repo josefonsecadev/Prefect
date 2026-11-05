@@ -1,8 +1,13 @@
 # A Arquitetura
 Decisão de operação (2026-11-05, TASK-0024): provisionamento de buckets, catálogo e
 permissões é uma ação explícita de instalação. Subir serviços não deve executar o
-provisionador da aplicação. Configuração estática do Trino fica em infra/trino;
-credenciais fixas em .env, certificado e hash de autenticação em runtime ignorado.
+provisionador da aplicação. Configurações de infraestrutura ficam em infra; segredos
+locais são fixos em .env ignorado.
+
+Decisão de arquitetura (2026-11-05, TASK-0025): manter RustFS, Iceberg, DuckDB e
+Prefect; substituir Polaris/PostgreSQL por Project Nessie como catálogo Iceberg REST
+e Trino por ClickHouse como endpoint SQL. A validação da integração Nessie/S3 e do
+catálogo Iceberg no ClickHouse é critério de aceite desta task.
 
 Fonte de verdade para planejar a arquitetura do projeto e definir os contratos que serão entregues para execução.
 
@@ -21,11 +26,14 @@ O planejamento é responsável por decidir como cada demanda se integra a essa p
 | DuckDB | Leitura, transformação e publicação dos dados |
 | RustFS | Armazenamento S3 dos arquivos brutos e das tabelas Iceberg |
 | Apache Iceberg | Formato de tabela, schema, partições, snapshots e transações |
-| Apache Polaris | Catálogo REST Iceberg, identidades e permissões do catálogo |
-| Trino | Consulta SQL de leitura da camada Ouro para consumidores |
-| PostgreSQL | Persistência interna do Polaris, com backend a confirmar na versão fixada |
+| Project Nessie | Catálogo REST Iceberg com persistência local RocksDB |
+| ClickHouse | Endpoint SQL para consultar tabelas Iceberg |
 
-PostgreSQL é destinado à persistência interna do catálogo e não deve receber regras de negócio dos pipelines. Esta tabela descreve a arquitetura aprovada; o código ainda será adaptado pelas tasks.
+O catálogo Nessie não recebe regras de negócio dos pipelines. ClickHouse lê Iceberg
+diretamente por `icebergS3()` quando recebe o path da tabela, mas essa chamada exige
+usuário administrativo no perfil atual e não descobre tabelas via Nessie. A integração
+de consumo por nome segue bloqueada; consulte TASK-0025 antes de considerar o acesso
+SQL para analistas pronto.
 
 ## Arquitetura de dados
 
@@ -44,10 +52,11 @@ Legislaturas e deputados: Bronze/Prata; despesas: Bronze/Prata/Ouro. Manutençã
 Iceberg permanece fora desta validação. Esta entrega não conclui aceites Iceberg,
 permissões SQL ou Trino e não substitui a arquitetura alvo abaixo.
 
-### Decisão aprovada: ambiente novo com RustFS, Polaris e Trino
+### Decisão histórica, substituída pela TASK-0025: RustFS, Polaris e Trino
 
 Em 2026-11-03, o usuário escolheu RustFS como armazenamento, Apache Polaris como
-catálogo e Trino como engine SQL de acesso à Ouro. O ambiente será provisionado
+catálogo e Trino como engine SQL de acesso à Ouro. Essa decisão foi substituída em
+2026-11-05 pelo uso de Nessie e ClickHouse. O ambiente será provisionado
 do zero quanto a dados, catálogos, registros de tabelas, usuários e volumes novos.
 Não há requisito de copiar ou preservar dados e catálogos anteriores na solução.
 Essa dispensa não exige apagar volumes antigos para executar o planejamento.
@@ -89,7 +98,7 @@ Ouro no Iceberg
        tabelas agregadas destinadas a APIs, dashboards e usuários finais
     |
     v
-Trino (somente leitura da Ouro para consumidores)
+ClickHouse (SQL sobre Iceberg; integração em validação na TASK-0025)
 ```
 
 ## Organização do código
@@ -193,7 +202,7 @@ Uma decisão arquitetural não pode ser transferida implicitamente ao desenvolvi
 
 - Python é a linguagem principal para coleta e transformação.
 - `requests` é usado para APIs, DuckDB para leitura e transformação e Selenium para fontes web que realmente dependam de navegador.
-- RustFS armazena objetos do datalake; Polaris mantém o catálogo REST Iceberg e Trino oferece acesso SQL à Ouro.
+- RustFS armazena objetos do datalake; Nessie mantém o catálogo REST Iceberg e ClickHouse oferece acesso SQL à Ouro.
 - Apache Iceberg fornece catálogo lógico de tabelas, schemas, snapshots, particionamento e transações.
 - Prefect define flows, tasks, deployments, estados e agendamentos.
 - Todos os serviços de produção devem ser dockerizados.

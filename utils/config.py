@@ -1,4 +1,4 @@
-"""Configuração compartilhada do armazenamento S3 e catálogo Polaris."""
+"""Configuração compartilhada do armazenamento S3 e catálogo Nessie."""
 import os
 from urllib.parse import urlparse
 
@@ -36,9 +36,6 @@ class Config:
             raise ConfigError("ICEBERG_CATALOG_ENDPOINT deve ser uma URL HTTP(S) sem credenciais")
         self.iceberg_warehouse = os.getenv("ICEBERG_WAREHOUSE", "prefect")
         self.iceberg_catalog_name = os.getenv("ICEBERG_CATALOG_NAME", "lakehouse")
-        self.polaris_client_id = self._get_required_env("POLARIS_CLIENT_ID")
-        self.polaris_client_secret = self._get_required_env("POLARIS_CLIENT_SECRET")
-        self.polaris_scope = os.getenv("POLARIS_SCOPE", "PRINCIPAL_ROLE:ALL")
 
     @staticmethod
     def _get_required_env(variable: str) -> str:

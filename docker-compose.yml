@@ -6,46 +6,44 @@ x-app: &app
   env_file: .env
   environment: &app-env
     S3_ENDPOINT: rustfs:9000
-    ICEBERG_CATALOG_ENDPOINT: http://polaris:8181/api/catalog
+    ICEBERG_CATALOG_ENDPOINT: http://nessie:19120/iceberg
     PREFECT_API_URL: http://prefect-server:4200/api
     DUCKDB_TEMP_DIRECTORY: /tmp/duckdb
   volumes:
     - ./.prefect/runtime:/runtime
 
-x-polaris-env: &polaris-env
-  POLARIS_PERSISTENCE_TYPE: relational-jdbc
-  POLARIS_PERSISTENCE_RELATIONAL_JDBC_DATABASE_TYPE: postgresql
-  QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://polaris-db:5432/polaris?currentSchema=polaris_schema
-  QUARKUS_DATASOURCE_USERNAME: polaris
-  QUARKUS_DATASOURCE_PASSWORD: ${POLARIS_DB_PASSWORD:?Configure POLARIS_DB_PASSWORD}
-
 services:
-  trino:
-    image: trinodb/trino:484
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.8
     restart: unless-stopped
-    mem_limit: ${TRINO_MEMORY:-576m}
+    mem_limit: ${CLICKHOUSE_MEMORY:-576m}
     ports:
-      - '127.0.0.1:${TRINO_PORT:-8080}:8443'
+      - '127.0.0.1:${CLICKHOUSE_HTTP_PORT:-8123}:8123'
+      - '127.0.0.1:${CLICKHOUSE_NATIVE_PORT:-9002}:9000'
     environment:
-      S3_REGION: ${S3_REGION:-us-east-1}
+      CLICKHOUSE_USER: ${CLICKHOUSE_ADMIN_USER:-lakehouse_admin}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_ADMIN_PASSWORD:?Configure CLICKHOUSE_ADMIN_PASSWORD}
+      CLICKHOUSE_READONLY_PASSWORD: ${CLICKHOUSE_READONLY_PASSWORD:?Configure CLICKHOUSE_READONLY_PASSWORD}
+      S3_ENDPOINT: http://rustfs:9000
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
-      ICEBERG_WAREHOUSE: ${ICEBERG_WAREHOUSE:-prefect}
-      POLARIS_READER_CLIENT_ID: ${POLARIS_READER_CLIENT_ID}
-      POLARIS_READER_CLIENT_SECRET: ${POLARIS_READER_CLIENT_SECRET}
-      TRINO_INTERNAL_SECRET: ${TRINO_INTERNAL_SECRET:?Configure TRINO_INTERNAL_SECRET}
+      S3_REGION: ${S3_REGION:-us-east-1}
     volumes:
-      - ./infra/trino:/etc/trino:ro
-      - ./.prefect/runtime/trino:/run/trino:ro
+      - clickhouse-data:/var/lib/clickhouse
+      - ./infra/clickhouse/config.d/s3.xml:/etc/clickhouse-server/config.d/s3.xml:ro
+      - ./infra/clickhouse/users.d/zz-analyst.xml:/etc/clickhouse-server/users.d/zz-analyst.xml:ro
+      - ./infra/clickhouse/initdb:/docker-entrypoint-initdb.d:ro
     depends_on:
-      polaris:
+      nessie:
+        condition: service_healthy
+      rustfs:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'curl', '-fkSs', 'https://localhost:8443/v1/info']
+      test: ['CMD-SHELL', 'clickhouse-client --user analista --password "$${CLICKHOUSE_READONLY_PASSWORD}" --query "SELECT 1"']
       interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 30s
+      timeout: 15s
+      retries: 20
+      start_period: 60s
 
   rustfs:
     image: rustfs/rustfs:1.0.4
@@ -70,64 +68,38 @@ services:
       retries: 12
       start_period: 30s
 
-  polaris-db:
-    image: postgres:16.9-alpine
+  nessie:
+    image: ghcr.io/projectnessie/nessie:0.107.1
     restart: unless-stopped
-    mem_limit: ${POSTGRES_MEMORY:-80m}
-    environment:
-      POSTGRES_DB: polaris
-      POSTGRES_USER: polaris
-      POSTGRES_PASSWORD: ${POLARIS_DB_PASSWORD:?Configure POLARIS_DB_PASSWORD}
-    command: ['postgres', '-c', 'shared_buffers=16MB', '-c', 'max_connections=20', '-c', 'work_mem=1MB']
-    volumes:
-      - polaris-db-data:/var/lib/postgresql/data
-      - ./infra/polaris-init.sql:/docker-entrypoint-initdb.d/01-polaris.sql:ro
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U polaris -d polaris']
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  polaris-bootstrap:
-    image: apache/polaris-admin-tool:1.8.0
-    profiles: [installation]
-    mem_limit: ${POLARIS_MEMORY:-320m}
-    environment:
-      <<: *polaris-env
-      JAVA_TOOL_OPTIONS: -Xms32m -Xmx192m -XX:ActiveProcessorCount=1
-    command:
-      - bootstrap
-      - --realm=POLARIS
-      - --credential=POLARIS,${POLARIS_ROOT_CLIENT_ID:-root},${POLARIS_ROOT_CLIENT_SECRET:?Configure POLARIS_ROOT_CLIENT_SECRET}
-    depends_on:
-      polaris-db:
-        condition: service_healthy
-
-  polaris:
-    image: apache/polaris:1.8.0
-    restart: unless-stopped
-    mem_limit: ${POLARIS_MEMORY:-320m}
+    mem_limit: ${NESSIE_MEMORY:-384m}
     ports:
-      - '127.0.0.1:${POLARIS_PORT:-8181}:8181'
+      - '127.0.0.1:${NESSIE_PORT:-19120}:19120'
     environment:
-      <<: *polaris-env
-      POLARIS_REALM_CONTEXT_REALMS: POLARIS
-      QUARKUS_OTEL_SDK_DISABLED: 'true'
-      JAVA_TOOL_OPTIONS: -Xms32m -Xmx192m -XX:ActiveProcessorCount=1
-      AWS_REGION: ${S3_REGION:-us-east-1}
-      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
-      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+    volumes:
+      - nessie-data:/nessie/data
+      - ./infra/nessie/application.properties:/deployments/config/application.properties:ro
     depends_on:
-      polaris-db:
-        condition: service_healthy
+      nessie-data-init:
+        condition: service_completed_successfully
       rustfs:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'curl', '-fsS', 'http://localhost:8182/q/health']
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:19120/api/v2/config']
       interval: 10s
       timeout: 5s
       retries: 20
-      start_period: 30s
+
+  nessie-data-init:
+    image: ghcr.io/projectnessie/nessie:0.107.1
+    user: '0:0'
+    restart: 'no'
+    entrypoint: ['/bin/sh', '-ec']
+    command: ['mkdir -p /nessie/data && chown -R 10000:10001 /nessie/data']
+    volumes:
+      - nessie-data:/nessie/data
 
   prefect-server:
     <<: *app
@@ -164,10 +136,11 @@ services:
     depends_on:
       prefect-server:
         condition: service_healthy
-      polaris:
+      nessie:
         condition: service_healthy
 
 volumes:
   rustfs-data:
-  polaris-db-data:
+  nessie-data:
+  clickhouse-data:
   prefect-data:

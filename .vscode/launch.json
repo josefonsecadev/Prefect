@@ -14,7 +14,7 @@
       "envFile": "${workspaceFolder}/.env",
       "env": {
         "S3_ENDPOINT": "localhost:9000",
-        "PIPELINE_STORAGE_FORMAT": "parquet",
+        "PIPELINE_STORAGE_FORMAT": "iceberg",
         "PREFECT_API_URL": "http://127.0.0.1:4200/api"
       }
     },
@@ -32,8 +32,8 @@
       "envFile": "${workspaceFolder}/.env",
       "env": {
         "S3_ENDPOINT": "localhost:9000",
-        "PIPELINE_STORAGE_FORMAT": "parquet",
-        "ICEBERG_CATALOG_ENDPOINT": "http://localhost:8181/api/catalog",
+        "PIPELINE_STORAGE_FORMAT": "iceberg",
+        "ICEBERG_CATALOG_ENDPOINT": "http://localhost:19120/iceberg",
         "PREFECT_API_URL": "http://127.0.0.1:4200/api"
       }
     },
@@ -48,8 +48,8 @@
       "envFile": "${workspaceFolder}/.env",
       "env": {
         "S3_ENDPOINT": "localhost:9000",
-        "PIPELINE_STORAGE_FORMAT": "parquet",
-        "ICEBERG_CATALOG_ENDPOINT": "http://localhost:8181/api/catalog",
+        "PIPELINE_STORAGE_FORMAT": "iceberg",
+        "ICEBERG_CATALOG_ENDPOINT": "http://localhost:19120/iceberg",
         "PREFECT_API_URL": "http://127.0.0.1:4200/api"
       }
     }

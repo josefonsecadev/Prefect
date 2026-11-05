@@ -20,9 +20,9 @@ description: Planejar mudanças transversais, definindo responsabilidades, contr
   timeout/retry, falhas/recuperação, métricas, segurança e impacto operacional conforme
   pertinência. Não preencher seções irrelevantes ou inventar requisitos de produção.
 - Usar tecnologias existentes; dependência nova exige necessidade demonstrada.
-  PostgreSQL é backend interno Polaris, sem dados/regras de negócio dos pipelines.
+  Nessie mantém o catálogo Iceberg e ClickHouse serve consultas SQL.
 - Consulte documentação oficial apenas para dúvida técnica concreta: Prefect,
-  DuckDB, RustFS e Polaris. Não pesquisar capacidades estáveis já confirmadas na
+  DuckDB, RustFS, Nessie e ClickHouse. Não pesquisar capacidades estáveis já confirmadas na
   implementação nem carregar vários manuais por rotina.
 - Falhas parciais e reprocessamento devem ter comportamento definido. Não mascarar
   erro como sucesso; respeitar responsabilidades Bronze/Prata/Ouro e credenciais.

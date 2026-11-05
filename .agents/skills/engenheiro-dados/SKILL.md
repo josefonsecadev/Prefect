@@ -1,6 +1,6 @@
 ---
 name: engenheiro-dados
-description: Implementar, diagnosticar e executar flows Prefect de coleta, transformação e publicação em RustFS/Parquet ou Iceberg/Polaris neste projeto.
+description: Implementar, diagnosticar e executar flows Prefect de coleta, transformação e publicação em RustFS/Parquet ou Iceberg/Nessie neste projeto.
 ---
 
 # Engenharia de Dados
@@ -17,8 +17,8 @@ description: Implementar, diagnosticar e executar flows Prefect de coleta, trans
 
 ## Execução local e diagnóstico
 1. Conferir `docker compose ps` uma vez e observar serviços necessários ao modo
-   escolhido. Parquet direto requer RustFS/Prefect; Iceberg também Polaris e seu banco.
-   Trino só quando fizer parte do aceite. Não iniciar dependências fora do escopo.
+   escolhido. Parquet direto requer RustFS/Prefect; Iceberg requer Nessie.
+   ClickHouse só quando fizer parte do aceite. Não iniciar dependências fora do escopo.
 2. Usar perfil `.vscode/launch.json`, `.venv` e `.env` do checkout. No host usar
    localhost; no container usar DNS dos serviços. Sem controle do VS Code, executar
    o mesmo entrypoint com `.venv/Scripts/python.exe -m pipelines.<projeto>.<flow>.orquestrador`
@@ -44,9 +44,9 @@ description: Implementar, diagnosticar e executar flows Prefect de coleta, trans
   paginação limitada, schema mínimo, preservação Bronze e retries só transitórios.
 - DuckDB para transformação, projeção/filtro cedo e memória/temporários controlados;
   evitar materializar em Python quando SQL resolve. Segredos nunca em logs/Git.
-- Respeitar formato escolhido no contrato: Iceberg com commit REST Polaris e snapshots;
+- Respeitar formato escolhido no contrato: Iceberg com commit REST Nessie e snapshots;
   Parquet direto conforme exceção aprovada no planning/task, sem alegar transações
-  ou validar catálogo. PostgreSQL permanece exclusivo do catálogo.
+  ou validar catálogo. Nessie mantém exclusivamente metadados do catálogo.
 - Escrita idempotente por recorte, sem duplicar ou apagar partições alheias. Validar
   tipos/identificadores SQL e reconciliar contagens/valores conforme regra aprovada.
 

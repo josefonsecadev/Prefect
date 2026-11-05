@@ -61,8 +61,9 @@ inventar instruções. Registre aqui novas skills/knowledge; não duplicar seus 
 
 ## Contratos do projeto
 
-Arquitetura alvo: Prefect + DuckDB + RustFS (S3) + Iceberg/Polaris + Trino para Ouro;
-instalação nova, sem migração de legado. PostgreSQL persiste somente o catálogo.
+Arquitetura alvo: Prefect + DuckDB + RustFS (S3) + Iceberg/Nessie + ClickHouse para
+consultas SQL da Ouro. Nessie substitui Polaris/PostgreSQL; ClickHouse substitui Trino.
+Manter dados e volumes existentes; novo warehouse Nessie isolado, sem migração implícita.
 Um flow por vez. Meta de 2GB depende de medição real; limites não provam capacidade.
 Modos e exceções aprovados estão no planning/task; a instrução atual do usuário
 sobre manter serviços ligados prevalece sobre a janela automática histórica.

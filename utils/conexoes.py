@@ -3,7 +3,6 @@ from __future__ import annotations
 from contextlib import contextmanager
 from pathlib import Path
 import re
-import time
 from typing import Iterator
 
 import duckdb
@@ -22,7 +21,6 @@ class Conexoes(Config):
         super().__init__()
         self.duckdb_conn = self._duckdb()
         self._iceberg_attached = False
-        self._token_expires_at = 0.0
 
     @contextmanager
     def _s3(self) -> Iterator[Minio]:
@@ -72,45 +70,17 @@ class Conexoes(Config):
     def _sql_literal(value: str) -> str:
         return "'" + value.replace("'", "''") + "'"
 
-    def _refresh_catalog_token(self) -> None:
-        if time.monotonic() < self._token_expires_at:
-            return
-        try:
-            response = requests.post(
-                f"{self.iceberg_catalog_endpoint}/v1/oauth/tokens",
-                data={
-                    "grant_type": "client_credentials",
-                    "client_id": self.polaris_client_id,
-                    "client_secret": self.polaris_client_secret,
-                    "scope": self.polaris_scope,
-                },
-                timeout=(10, 30),
-            )
-            response.raise_for_status()
-            payload = response.json()
-            token = payload["access_token"]
-            lifetime = int(payload.get("expires_in", 300))
-            if not isinstance(token, str) or not token or lifetime <= 0:
-                raise ValueError("Resposta OAuth2 inválida")
-        except (requests.RequestException, ValueError, KeyError, TypeError):
-            raise ConfigError("Não foi possível autenticar no catálogo Polaris") from None
-        self.duckdb_conn.execute(
-            "CREATE OR REPLACE TEMP SECRET iceberg_catalog_secret "
-            f"(TYPE iceberg, TOKEN {self._sql_literal(token)})"
-        )
-        self._token_expires_at = time.monotonic() + max(1, lifetime - 60)
-
     def _attach_iceberg_catalog(self) -> str:
         if self.storage_format != "iceberg":
             raise ConfigError("Operação exclusiva de catálogo exige PIPELINE_STORAGE_FORMAT=iceberg")
-        self._refresh_catalog_token()
         if not self._iceberg_attached:
             catalog = self._sql_identifier(self.iceberg_catalog_name)
             endpoint = self._sql_literal(self.iceberg_catalog_endpoint)
             warehouse = self._sql_literal(self.iceberg_warehouse)
             self.duckdb_conn.execute(
                 f"ATTACH {warehouse} AS {catalog} "
-                f"(TYPE iceberg, ENDPOINT {endpoint}, SECRET iceberg_catalog_secret, "
+                f"(TYPE iceberg, ENDPOINT {endpoint}, "
+                "AUTHORIZATION_TYPE 'none', "
                 "ACCESS_DELEGATION_MODE 'none', SUPPORT_NESTED_NAMESPACES true)"
             )
             self._iceberg_attached = True

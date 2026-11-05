@@ -32,16 +32,15 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | [TASK-0022](TASK-0022-env-fixo.md) | Adotar .env fixo e remover gerador | infraestrutura | melhoria | P2 | concluida | Nenhuma |
 | [TASK-0023](TASK-0023-remover-batch.md) | Remover execução por janela | orquestracao | melhoria | P2 | concluida | Nenhuma |
 | [TASK-0024](TASK-0024-simplificar-inicializacao.md) | Separar instalação e operação | infraestrutura | melhoria | P2 | concluida | Operação contínua; instalação nova não reproduzida |
+| [TASK-0025](TASK-0025-nessie-clickhouse.md) | Trocar Polaris/Trino por Nessie/ClickHouse | infraestrutura | melhoria | P1 | bloqueada | Expor leitura IcebergS3 por nome ao usuário analista sem liberar função S3 |
 
 Demandas registradas a partir das solicitações do usuário; classificação secundária no arquivo de cada tarefa.
 
-Arquitetura aprovada: **Prefect + DuckDB + RustFS + Iceberg + Apache Polaris + Trino**.
-Instalação nova de dados e catálogo: sem cópia, importação ou compatibilidade com
-registros antigos. Contratos/código base entregues; infraestrutura, Ouro, Trino e
-automação implementados, mas ainda sem aceite executável por falha do Docker Desktop.
-Sequência principal: 0003 → 0004 →
-0005 → 0006; Trino (0008) pode ser configurado após 0005. Produto Ouro/aceite completo
-(0009) exige 0006 e 0008; seu contrato de negócio pode ser definido após 0003.
+Arquitetura alvo atual: **Prefect + DuckDB + RustFS + Iceberg/Nessie + ClickHouse**.
+As tasks 0003 a 0009 registram decisões e implementações históricas de Polaris/Trino;
+foram substituídas pela TASK-0025. O flow Iceberg publica com Nessie, mas a leitura
+via `DataLakeCatalog` ClickHouse/RustFS permanece bloqueada por incompatibilidade
+confirmada no ClickHouse 26.8.36.3. Containers antigos foram parados, volumes mantidos.
 
 ## Classificação
 
