@@ -12,8 +12,12 @@ class ConfigError(RuntimeError):
 class Config:
     def __init__(self):
         load_dotenv()
-        credentials_file = os.getenv("POLARIS_CREDENTIALS_FILE", ".prefect/runtime/writer.env")
-        load_dotenv(credentials_file, override=True)
+        self.storage_format = os.getenv("PIPELINE_STORAGE_FORMAT", "iceberg").strip().lower()
+        if self.storage_format not in {"iceberg", "parquet"}:
+            raise ConfigError("PIPELINE_STORAGE_FORMAT deve ser iceberg ou parquet")
+        if self.storage_format == "iceberg":
+            credentials_file = os.getenv("POLARIS_CREDENTIALS_FILE", ".prefect/runtime/writer.env")
+            load_dotenv(credentials_file, override=True)
         self.ambiente = os.getenv("AMBIENTE", "local")
         self.s3_endpoint = self._get_required_env("S3_ENDPOINT")
         if "://" in self.s3_endpoint or "/" in self.s3_endpoint:
@@ -25,6 +29,10 @@ class Config:
         self.s3_url_style = os.getenv("S3_URL_STYLE", "path")
         if self.s3_url_style not in {"path", "vhost"}:
             raise ConfigError("S3_URL_STYLE deve ser path ou vhost")
+        self.duckdb_memory_limit = os.getenv("DUCKDB_MEMORY_LIMIT", "128MB")
+        self.duckdb_temp_directory = os.getenv("DUCKDB_TEMP_DIRECTORY", ".prefect/duckdb-tmp")
+        if self.storage_format == "parquet":
+            return
         self.iceberg_catalog_endpoint = self._get_required_env("ICEBERG_CATALOG_ENDPOINT").rstrip("/")
         parsed = urlparse(self.iceberg_catalog_endpoint)
         if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username:
@@ -34,8 +42,6 @@ class Config:
         self.polaris_client_id = self._get_required_env("POLARIS_CLIENT_ID")
         self.polaris_client_secret = self._get_required_env("POLARIS_CLIENT_SECRET")
         self.polaris_scope = os.getenv("POLARIS_SCOPE", "PRINCIPAL_ROLE:ALL")
-        self.duckdb_memory_limit = os.getenv("DUCKDB_MEMORY_LIMIT", "128MB")
-        self.duckdb_temp_directory = os.getenv("DUCKDB_TEMP_DIRECTORY", ".prefect/duckdb-tmp")
 
     @staticmethod
     def _get_required_env(variable: str) -> str:

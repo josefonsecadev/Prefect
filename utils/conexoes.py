@@ -45,7 +45,8 @@ class Conexoes(Config):
         Path(self.duckdb_temp_directory).mkdir(parents=True, exist_ok=True)
         con.execute("SET temp_directory = ?", [self.duckdb_temp_directory])
         con.execute("SET preserve_insertion_order = false")
-        for extension in ("httpfs", "iceberg"):
+        extensions = ("httpfs", "iceberg") if self.storage_format == "iceberg" else ("httpfs",)
+        for extension in extensions:
             con.execute(f"INSTALL {extension}")
             con.execute(f"LOAD {extension}")
         # Literais escapados; nunca registrar comandos contendo credenciais.
@@ -100,6 +101,8 @@ class Conexoes(Config):
         self._token_expires_at = time.monotonic() + max(1, lifetime - 60)
 
     def _attach_iceberg_catalog(self) -> str:
+        if self.storage_format != "iceberg":
+            raise ConfigError("Operação exclusiva de catálogo exige PIPELINE_STORAGE_FORMAT=iceberg")
         self._refresh_catalog_token()
         if not self._iceberg_attached:
             catalog = self._sql_identifier(self.iceberg_catalog_name)

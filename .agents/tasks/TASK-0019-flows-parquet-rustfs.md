@@ -47,3 +47,9 @@
 | Data | Evento | Evidência |
 |---|---|---|
 | 2026-11-04 | Demanda registrada | Escopo explícito Parquet/RustFS sem catálogo/Trino |
+
+## E01/E02 — Entrega de código (aceite de flow pendente)
+- E01 aprovada: contrato explícito de Parquet independente, sem alterar default Iceberg.
+- E02 implementada em config/conexoes/pipeline: modo validado, credenciais/extensão Iceberg dispensadas no modo Parquet, chave determinística por recorte, schema/count local e readback remoto, leitura de dependências e proibição de snapshot no modo direto.
+- QA documental/diff sem testes isolados; avaliação executável será feita nos orquestradores completos após E03. Até cinco arquivos nesta etapa; índice mantém status em execução.
+- Próxima etapa E03: Ouro deve usar _table_source, corrigir parâmetros deployment e perfil debug; depois execução real.
