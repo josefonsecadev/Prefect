@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from prefect import flow, task
+from prefect.cache_policies import NO_CACHE
 
 from utils.pipeline import Pipeline
 
@@ -27,7 +28,7 @@ class PipePrata(Pipeline):
         self.log.info("[PRATA] SNAPSHOT ICEBERG PUBLICADO: %s", snapshot)
         return snapshot
 
-    @task(name="publicar_legislaturas")
+    @task(name="publicar_legislaturas", cache_policy=NO_CACHE)
     def _publicar_legislaturas(self) -> dict:
         self._read_dataframe(
             nome_tabela=Info.PIPELINE_NAME,

@@ -58,3 +58,10 @@
 - Ouro usa fonte conforme modo, sem chamar catálogo em Parquet; deployment de manutenção omite valores null para parâmetros obrigatórios (entrada exigida no disparo).
 - Perfis debug dos três flows com modo Parquet e endpoints host explícitos. Iceberg default preservado fora desses perfis.
 - QA de diff aprovada para iniciar reprodução real; nenhum teste isolado criado. Próximo: E04/legislaturas.
+
+## E04/Legislaturas — impedimento na fonte
+- Run c9fefa50-af84-4cf1-b6e3-9c628be0c563 falhou por HTTP 504 no GET de legislaturas. Cache Prefect também tentava serializar DuckDB/self (não foi a causa terminal).
+- Corrigido NO_CACHE nas tasks de Legislaturas, retries HTTP limitados a transitórios e Accept JSON explícito. Runs 29e4adb1-d131-455b-b206-9274fef24db6 e 02c3ac55-5415-4f63-b846-a8668448b9d4 esgotaram retries com 504. Não repetir indefinidamente nem substituir por dados falsos.
+- Código revisado; validação executável de Legislaturas pendente da disponibilidade da API. Deputados depende da Prata de Legislaturas; não alegar aceite sem dados.
+- Worker reconstruído com correção do deployment, quatro deployments registrados e ProcessWorker bb81604f-7d4a-4c1c-bd76-8ec4bf48854d conectado ao pool local. RustFS/Server saudáveis; somente estes e Worker ligados.
+- Próximo: executar Despesas 2025, independente de Legislaturas, corrigindo erros concretos. Sem catálogo/Trino.
