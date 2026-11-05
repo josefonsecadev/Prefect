@@ -138,6 +138,9 @@ services:
   prefect-server:
     <<: *app
     profiles: [processing]
+    environment:
+      <<: *app-env
+      PREFECT_UI_API_URL: http://localhost:${PREFECT_PORT:-4200}/api
     mem_limit: ${PREFECT_SERVER_MEMORY:-160m}
     ports:
       - '127.0.0.1:${PREFECT_PORT:-4200}:4200'
