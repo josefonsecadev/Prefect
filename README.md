@@ -81,14 +81,16 @@ No PowerShell, na raiz do projeto:
 ```powershell
 $env:POETRY_VIRTUALENVS_IN_PROJECT='true'
 poetry install --no-root
-./.venv/Scripts/python.exe -m infra.init_env
 docker compose up --build -d
 docker compose ps -a
 ```
 
-`infra.init_env` cria `.env` com segredos aleatórios e não os imprime. Se já existir
-um `.env` de outra instalação, `--replace` guarda uma cópia local em `.prefect/runtime`
-antes de gerar o novo. Nunca versionar `.env`, runtime, certificados ou chaves.
+O ambiente utiliza um `.env` local fixo, preenchido antes de iniciar o Compose.
+Na instalação existente, preserve esse arquivo e suas credenciais. Para uma nova
+instalação, copie `.env.example` para `.env`, substitua os valores `change-me`
+por credenciais próprias e configure `S3_ACCESS_KEY`/`S3_SECRET_KEY` com os mesmos
+valores de `RUSTFS_ACCESS_KEY`/`RUSTFS_SECRET_KEY`. Não há geração automática de `.env`.
+Nunca versionar `.env`, runtime, certificados ou chaves.
 
 Ordem de inicialização: RustFS e PostgreSQL, bootstrap JDBC Polaris, Polaris,
 `lakehouse-setup`, Trino. Serviços de bootstrap devem encerrar com código zero.
