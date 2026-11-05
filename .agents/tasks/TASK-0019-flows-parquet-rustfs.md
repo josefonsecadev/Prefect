@@ -71,3 +71,7 @@
 - Diagnóstico sobre Parquet real: 937 sem deputado, zero mês inválido, zero valor ausente. Nomes são lideranças partidárias; não descartar nem atribuir ID fictício. Usuário consultado sobre manter Ouro somente deputados com exclusões explicitamente reconciliadas ou ampliar contrato; decisão pendente.
 - Correções independentes: NO_CACHE nas tasks de Despesas; falhar em HTTP não sucesso e ZIP inválido antes da escrita; logs Prata mostram formato correto. Não alterada regra Ouro até decisão.
 - Reprodução completa pós-correção permanece pendente de tratamento explícito das lideranças; não afirmar versão utilizável integral.
+
+## E04/Deputados — dependência ausente
+- Run 3140b1bd-ff5a-4054-94c2-5512ec02715e falhou ao ler a Prata Parquet de Legislaturas, ausente devido aos 504 da fonte. Nenhum dado inventado nem fallback silencioso aplicado.
+- E04 completa permanece pendente. Nenhum ajuste ao flow de Deputados foi feito nesta subetapa, pois ele não chegou à coleta.
