@@ -1,0 +1,32 @@
+{
+  "catalogs": [
+    {
+      "user": "analista",
+      "catalog": "ouro",
+      "allow": "read-only"
+    }
+  ],
+  "schemas": [
+    {
+      "user": "analista",
+      "catalog": "ouro",
+      "schema": "ouro_camara_deputados",
+      "owner": false
+    }
+  ],
+  "tables": [
+    {
+      "user": "analista",
+      "catalog": "ouro",
+      "schema": "ouro_camara_deputados",
+      "table": ".*",
+      "privileges": [
+        "SELECT"
+      ]
+    }
+  ],
+  "functions": [],
+  "procedures": [],
+  "system_session_properties": [],
+  "catalog_session_properties": []
+}

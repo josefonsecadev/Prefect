@@ -15,9 +15,6 @@ class Config:
         self.storage_format = os.getenv("PIPELINE_STORAGE_FORMAT", "iceberg").strip().lower()
         if self.storage_format not in {"iceberg", "parquet"}:
             raise ConfigError("PIPELINE_STORAGE_FORMAT deve ser iceberg ou parquet")
-        if self.storage_format == "iceberg":
-            credentials_file = os.getenv("POLARIS_CREDENTIALS_FILE", ".prefect/runtime/writer.env")
-            load_dotenv(credentials_file, override=True)
         self.ambiente = os.getenv("AMBIENTE", "local")
         self.s3_endpoint = self._get_required_env("S3_ENDPOINT")
         if "://" in self.s3_endpoint or "/" in self.s3_endpoint:

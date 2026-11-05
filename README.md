@@ -81,21 +81,49 @@ No PowerShell, na raiz do projeto:
 ```powershell
 $env:POETRY_VIRTUALENVS_IN_PROJECT='true'
 poetry install --no-root
-docker compose up --build -d
-docker compose ps -a
 ```
 
 O ambiente utiliza um `.env` local fixo, preenchido antes de iniciar o Compose.
 Na instalação existente, preserve esse arquivo e suas credenciais. Para uma nova
-instalação, copie `.env.example` para `.env`, substitua os valores `change-me`
-por credenciais próprias e configure `S3_ACCESS_KEY`/`S3_SECRET_KEY` com os mesmos
+instalação, copie `.env.example` para `.env`, preencha os segredos administrativos,
+SQL e `TRINO_INTERNAL_SECRET` com valores próprios e configure `S3_ACCESS_KEY`/`S3_SECRET_KEY` com os mesmos
 valores de `RUSTFS_ACCESS_KEY`/`RUSTFS_SECRET_KEY`. Não há geração automática de `.env`.
 Nunca versionar `.env`, runtime, certificados ou chaves.
 
-Ordem de inicialização: RustFS e PostgreSQL, bootstrap JDBC Polaris, Polaris,
-`lakehouse-setup`, Trino. Serviços de bootstrap devem encerrar com código zero.
-Catálogo/roles/namespaces são idempotentes. Perda dos arquivos de credenciais do
-runtime exige recuperação ou rotação explícita; não são recriados silenciosamente.
+### Instalação inicial (somente em ambiente novo)
+
+Antes do primeiro `up` completo, execute as etapas explícitas:
+
+```powershell
+docker compose up -d rustfs polaris-db
+docker compose --profile installation run --rm polaris-bootstrap
+docker compose up -d polaris
+# Aguarde Polaris ficar healthy em docker compose ps.
+./.venv/Scripts/python.exe -m infra.provision
+./.venv/Scripts/python.exe -m infra.prepare_trino
+docker compose --profile processing up --build -d
+```
+
+`infra.provision` cria buckets, catálogo, namespaces e permissões. O Polaris emite
+as credenciais dos novos usuários; o comando as salva diretamente no `.env`.
+Em recursos existentes, preserva as credenciais e verifica sua autenticação.
+O catálogo usa `S3_INTERNAL_ENDPOINT` (padrão `rustfs:9000`) para acesso entre containers.
+O comando no host usa `S3_ENDPOINT` e `ICEBERG_CATALOG_ENDPOINT` locais.
+
+`infra.prepare_trino` prepara o hash da senha SQL e o certificado TLS local; não
+sobrescreve o certificado existente. Execute-o novamente ao mudar a senha SQL.
+Se alterar `TRINO_USER`, ajuste também as regras em `infra/trino/rules.json`.
+
+### Inicialização diária
+
+```powershell
+docker compose --profile processing up -d
+```
+
+O startup não provisiona catálogo nem gera configurações. Arquivos estáticos do
+Trino ficam em `infra/trino`, com referências `${ENV:...}` para segredos do `.env`.
+Não repita a instalação JDBC em volumes existentes. Preserve `.env` e backups:
+credenciais perdidas exigem recuperação ou rotação explícita.
 
 O SDK Python `minio` permanece como cliente S3; não é necessário servidor MinIO.
 No perfil local, credenciais de armazenamento são compartilhadas apenas pelos
@@ -115,8 +143,9 @@ publicação externa exige configuração própria de TLS e rede.
 | Prefect Worker | Permanente | Sem porta publicada |
 
 Volumes nomeados novos: rustfs-data, polaris-db-data e prefect-data. Os arquivos
-`.prefect/runtime/writer.env`, `reader.env` e `trino/` também são persistência
-operacional: guardar com proteção adequada junto com backup do catálogo/storage.
+`.prefect/runtime/trino/server.pem` e `password.db`, junto com o `.env`, também são
+persistência operacional: guardar protegidos junto com backup do catálogo/storage.
+Os arquivos antigos `writer.env` e `reader.env` não são mais usados.
 
 ## Executar e depurar flows
 
@@ -124,7 +153,7 @@ operacional: guardar com proteção adequada junto com backup do catálogo/stora
 docker compose --profile processing up -d prefect-worker
 ```
 
-As dependências iniciam o Server e aguardam bootstrap. No VS Code, usar os perfis
+As dependências iniciam Server e Polaris; a instalação deve estar preparada. No VS Code, usar os perfis
 de `.vscode/launch.json`, `.venv` e `.env`. No host, endpoints são localhost; dentro
 do Docker, `rustfs:9000`, `polaris:8181` e `prefect-server:4200`.
 

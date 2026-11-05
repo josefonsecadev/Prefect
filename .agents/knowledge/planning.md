@@ -1,4 +1,9 @@
 # A Arquitetura
+Decisão de operação (2026-11-05, TASK-0024): provisionamento de buckets, catálogo e
+permissões é uma ação explícita de instalação. Subir serviços não deve executar o
+provisionador da aplicação. Configuração estática do Trino fica em infra/trino;
+credenciais fixas em .env, certificado e hash de autenticação em runtime ignorado.
+
 Fonte de verdade para planejar a arquitetura do projeto e definir os contratos que serão entregues para execução.
 
 ## O que é o projeto
@@ -60,8 +65,8 @@ Essa dispensa não exige apagar volumes antigos para executar o planejamento.
 - DuckDB escreve Prata/Ouro pelo REST Polaris; Trino consulta as tabelas pelo mesmo
   catálogo e lê os objetos no RustFS. Consumidores recebem identidade SQL sem
   credenciais S3 e só acessam Ouro. Separar escritor, leitor e bootstrap administrativo.
-- Bootstrap cria buckets, catálogo, namespaces, identidades e permissões do zero,
-  sendo idempotente para reinicializações desse novo ambiente.
+- Provisionamento explícito cria buckets, catálogo, namespaces, identidades e
+  permissões na instalação; é idempotente e não participa do startup diário.
 - TASK-0003 fixa versões, autenticação e contratos; TASK-0004 adapta código;
   TASK-0005 provisiona a base; TASK-0006 valida flows; TASK-0007 registra decisão;
   TASK-0008 entrega Trino; TASK-0009 define produto Ouro e valida consumo completo.

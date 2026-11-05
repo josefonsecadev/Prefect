@@ -31,6 +31,7 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | [TASK-0021](TASK-0021-acesso-ui-prefect.md) | Corrigir conexão da interface Prefect | docker | correcao | P1 | concluida | Recarregar interface no navegador |
 | [TASK-0022](TASK-0022-env-fixo.md) | Adotar .env fixo e remover gerador | infraestrutura | melhoria | P2 | concluida | Nenhuma |
 | [TASK-0023](TASK-0023-remover-batch.md) | Remover execução por janela | orquestracao | melhoria | P2 | concluida | Nenhuma |
+| [TASK-0024](TASK-0024-simplificar-inicializacao.md) | Separar instalação e operação | infraestrutura | melhoria | P2 | concluida | Operação contínua; instalação nova não reproduzida |
 
 Demandas registradas a partir das solicitações do usuário; classificação secundária no arquivo de cada tarefa.
 

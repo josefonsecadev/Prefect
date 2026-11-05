@@ -30,14 +30,16 @@ services:
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
+      ICEBERG_WAREHOUSE: ${ICEBERG_WAREHOUSE:-prefect}
+      POLARIS_READER_CLIENT_ID: ${POLARIS_READER_CLIENT_ID}
+      POLARIS_READER_CLIENT_SECRET: ${POLARIS_READER_CLIENT_SECRET}
+      TRINO_INTERNAL_SECRET: ${TRINO_INTERNAL_SECRET:?Configure TRINO_INTERNAL_SECRET}
     volumes:
-      - ./.prefect/runtime/trino:/etc/trino:ro
-      - ./.prefect/runtime:/runtime:ro
-      - ./infra/trino-start.sh:/opt/trino-start.sh:ro
-    entrypoint: ['/bin/bash', '/opt/trino-start.sh']
+      - ./infra/trino:/etc/trino:ro
+      - ./.prefect/runtime/trino:/run/trino:ro
     depends_on:
-      lakehouse-setup:
-        condition: service_completed_successfully
+      polaris:
+        condition: service_healthy
     healthcheck:
       test: ['CMD', 'curl', '-fkSs', 'https://localhost:8443/v1/info']
       interval: 10s
@@ -88,6 +90,7 @@ services:
 
   polaris-bootstrap:
     image: apache/polaris-admin-tool:1.8.0
+    profiles: [installation]
     mem_limit: ${POLARIS_MEMORY:-320m}
     environment:
       <<: *polaris-env
@@ -115,8 +118,8 @@ services:
       AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
       AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
     depends_on:
-      polaris-bootstrap:
-        condition: service_completed_successfully
+      polaris-db:
+        condition: service_healthy
       rustfs:
         condition: service_healthy
     healthcheck:
@@ -125,15 +128,6 @@ services:
       timeout: 5s
       retries: 20
       start_period: 30s
-
-  lakehouse-setup:
-    <<: *app
-    restart: 'no'
-    mem_limit: 192m
-    command: ['python', '-m', 'infra.bootstrap']
-    depends_on:
-      polaris:
-        condition: service_healthy
 
   prefect-server:
     <<: *app
@@ -159,7 +153,6 @@ services:
     mem_limit: ${PREFECT_WORKER_MEMORY:-384m}
     environment:
       <<: *app-env
-      POLARIS_CREDENTIALS_FILE: /runtime/writer.env
     command:
       - sh
       - -ec
@@ -171,8 +164,8 @@ services:
     depends_on:
       prefect-server:
         condition: service_healthy
-      lakehouse-setup:
-        condition: service_completed_successfully
+      polaris:
+        condition: service_healthy
 
 volumes:
   rustfs-data:
