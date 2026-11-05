@@ -86,9 +86,25 @@ FROM icebergS3('http://rustfs:9000/iceberg/nessie-warehouse/<namespace>/<tabela>
 ```
 
 O teste na tabela `prata_camara_deputados.legislaturas` retornou 57 linhas (IDs 1–57).
-O perfil `analista` não pode executar essa função em `readonly=1`; não compartilhe
-credenciais administrativas com consumidores. A descoberta automática do path pelo
-Nessie e a exposição somente leitura por nome continuam pendentes na TASK-0025.
+O perfil SQL `analista` não pode executar essa função em `readonly=1`; não compartilhe
+credenciais administrativas do ClickHouse com consumidores. A descoberta automática
+do path pelo Nessie e a exposição somente leitura por nome continuam pendentes na TASK-0025.
+Para a árvore JDBC do DBeaver, o perfil habilita
+`show_data_lake_catalogs_in_system_tables`; após reiniciar o ClickHouse, desconecte,
+reconecte e atualize (`Refresh`) a conexão no DBeaver para carregar as tabelas.
+
+### Credenciais S3
+
+O worker do Prefect entrega `RUSTFS_ACCESS_KEY`/`RUSTFS_SECRET_KEY` ao DuckDB como
+credenciais S3 para ler e escrever nos flows. O Prefect Server não recebe essas
+chaves. Os perfis de debug locais usam `S3_ACCESS_KEY`/`S3_SECRET_KEY` do `.env`,
+que devem corresponder às credenciais administrativas. O ClickHouse usa
+`CLICKHOUSE_S3_ACCESS_KEY`/`CLICKHOUSE_S3_SECRET_KEY`,
+com uma identidade RustFS separada. A política versionada em
+`infra/rustfs/policies/clickhouse-iceberg-read.json` permite apenas listar e ler o
+prefixo `iceberg/nessie-warehouse/`; não permite escrita. Crie/anexe essa política
+ao usuário `clickhouse_iceberg_ro` no RustFS e mantenha as chaves no `.env` local.
+O perfil SQL `analista` é independente dessa credencial S3 e segue `readonly=1`.
 
 Quando esse acesso estiver pronto, a consulta esperada da Ouro será:
 

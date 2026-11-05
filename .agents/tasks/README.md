@@ -32,7 +32,7 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | [TASK-0022](TASK-0022-env-fixo.md) | Adotar .env fixo e remover gerador | infraestrutura | melhoria | P2 | concluida | Nenhuma |
 | [TASK-0023](TASK-0023-remover-batch.md) | Remover execução por janela | orquestracao | melhoria | P2 | concluida | Nenhuma |
 | [TASK-0024](TASK-0024-simplificar-inicializacao.md) | Separar instalação e operação | infraestrutura | melhoria | P2 | concluida | Operação contínua; instalação nova não reproduzida |
-| [TASK-0025](TASK-0025-nessie-clickhouse.md) | Trocar Polaris/Trino por Nessie/ClickHouse | infraestrutura | melhoria | P1 | bloqueada | Expor leitura IcebergS3 por nome ao usuário analista sem liberar função S3 |
+| [TASK-0025](TASK-0025-nessie-clickhouse.md) | Trocar Polaris/Trino por Nessie/ClickHouse | infraestrutura | melhoria | P1 | bloqueada | Resolver leitura de tabelas por nome no ClickHouse para o usuário analista |
 
 Demandas registradas a partir das solicitações do usuário; classificação secundária no arquivo de cada tarefa.
 

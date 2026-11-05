@@ -30,10 +30,17 @@ O planejamento é responsável por decidir como cada demanda se integra a essa p
 | ClickHouse | Endpoint SQL para consultar tabelas Iceberg |
 
 O catálogo Nessie não recebe regras de negócio dos pipelines. ClickHouse lê Iceberg
-diretamente por `icebergS3()` quando recebe o path da tabela, mas essa chamada exige
-usuário administrativo no perfil atual e não descobre tabelas via Nessie. A integração
+diretamente por `icebergS3()` quando recebe o path da tabela. No perfil atual, a
+função exige um usuário SQL administrativo porque o usuário `analista` usa
+`readonly=1`; a chave S3 do serviço ClickHouse, por sua vez, é somente leitura e
+limitada ao warehouse. A função direta não descobre tabelas via Nessie. A integração
 de consumo por nome segue bloqueada; consulte TASK-0025 antes de considerar o acesso
 SQL para analistas pronto.
+
+Decisão de credenciais (TASK-0025): por solicitação do usuário, Prefect/DuckDB usam
+as credenciais administrativas do RustFS para leitura e escrita dos flows. ClickHouse
+recebe identidade IAM separada, somente leitura e limitada ao prefixo `iceberg/nessie-warehouse/`.
+Segredos ficam no `.env`; a política IAM é versionada sem credenciais.
 
 ## Arquitetura de dados
 

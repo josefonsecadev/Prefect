@@ -3,7 +3,6 @@ name: prefect-lakehouse
 x-app: &app
   build: .
   image: prefect-lakehouse-worker:local
-  env_file: .env
   environment: &app-env
     S3_ENDPOINT: rustfs:9000
     ICEBERG_CATALOG_ENDPOINT: http://nessie:19120/iceberg
@@ -24,9 +23,9 @@ services:
       CLICKHOUSE_USER: ${CLICKHOUSE_ADMIN_USER:-lakehouse_admin}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_ADMIN_PASSWORD:?Configure CLICKHOUSE_ADMIN_PASSWORD}
       CLICKHOUSE_READONLY_PASSWORD: ${CLICKHOUSE_READONLY_PASSWORD:?Configure CLICKHOUSE_READONLY_PASSWORD}
+      CLICKHOUSE_S3_ACCESS_KEY: ${CLICKHOUSE_S3_ACCESS_KEY:?Configure CLICKHOUSE_S3_ACCESS_KEY}
+      CLICKHOUSE_S3_SECRET_KEY: ${CLICKHOUSE_S3_SECRET_KEY:?Configure CLICKHOUSE_S3_SECRET_KEY}
       S3_ENDPOINT: http://rustfs:9000
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
-      S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_REGION: ${S3_REGION:-us-east-1}
     volumes:
       - clickhouse-data:/var/lib/clickhouse
@@ -122,9 +121,19 @@ services:
   prefect-worker:
     <<: *app
     profiles: [processing]
-    mem_limit: ${PREFECT_WORKER_MEMORY:-384m}
     environment:
       <<: *app-env
+      AMBIENTE: ${AMBIENTE:-local}
+      PIPELINE_STORAGE_FORMAT: ${PIPELINE_STORAGE_FORMAT:-iceberg}
+      S3_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?Configure RUSTFS_ACCESS_KEY}
+      S3_SECRET_KEY: ${RUSTFS_SECRET_KEY:?Configure RUSTFS_SECRET_KEY}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_USE_SSL: ${S3_USE_SSL:-false}
+      S3_URL_STYLE: ${S3_URL_STYLE:-path}
+      ICEBERG_WAREHOUSE: ${ICEBERG_WAREHOUSE:-warehouse}
+      ICEBERG_CATALOG_NAME: ${ICEBERG_CATALOG_NAME:-lakehouse}
+      DUCKDB_MEMORY_LIMIT: ${DUCKDB_MEMORY_LIMIT:-128MB}
+    mem_limit: ${PREFECT_WORKER_MEMORY:-384m}
     command:
       - sh
       - -ec
