@@ -68,6 +68,45 @@ Bronze → Prata → Ouro.
 ./.venv/Scripts/python.exe -m pipelines.camara_deputados.despesas.orquestrador
 ```
 
+## Criar um flow novo
+
+1. Crie `pipelines/<dominio>/<flow>/`. Adicione `info.py` para nomes, caminhos e
+   schemas; crie `bronze.py`, `prata.py` e `ouro.py` somente para as camadas usadas.
+2. Em `info.py`, declare o schema Iceberg com os tipos DuckDB, por exemplo:
+
+   ```python
+   class Info:
+       PROJECT_NAME = "meu_dominio"
+       PIPELINE_NAME = "minha_tabela"
+       SCHEMA = {"id": "BIGINT", "nome": "VARCHAR"}
+   ```
+
+3. Em cada camada, implemente o processamento usando `Pipeline` e os metadados de
+   `Info`. O `orquestrador.py` define o flow Prefect e chama as camadas na ordem.
+   Ao publicar no Iceberg, `_save_iceberg` cria o namespace e a tabela se ainda não
+   existirem; não há cadastro em arquivo central de tabelas ou `rules`.
+4. Adicione uma entrada à lista `deployments` em `prefect.yaml`, usando o caminho
+   da função de entrada e declarando os parâmetros aceitos pelo orquestrador:
+
+   ```yaml
+   - name: meu_dominio_minha_tabela
+     entrypoint: pipelines/meu_dominio/minha_tabela/orquestrador.py:executar_pipeline
+     work_pool:
+       name: local
+     schedule: null
+     parameters: {}
+     tags:
+       - meu_dominio
+   ```
+
+5. Execute pelo ambiente local para depurar e reconstrua o Worker para registrar o
+   deployment no Prefect:
+
+   ```powershell
+   ./.venv/Scripts/python.exe -m pipelines.meu_dominio.minha_tabela.orquestrador
+   docker compose --profile processing up --build -d prefect-worker
+   ```
+
 O formato `PIPELINE_STORAGE_FORMAT=iceberg` usa Nessie. O modo `parquet` legado
 publica arquivos diretamente e não oferece catálogo ou snapshots Iceberg. Em
 execuções anteriores (TASK-0019), Despesas 2025 concluiu Bronze/Prata, mas Ouro
