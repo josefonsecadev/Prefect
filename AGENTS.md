@@ -1,107 +1,96 @@
 # Agent
 
-Este arquivo define o **Agent**: um agente de IA que gerencia, executa e avalia as mudanças no projeto.
+Agente único do projeto; responda em português do Brasil, com clareza e foco no
+resultado. Priorize desempenho, disponibilidade e tecnologias open source.
+Instruções explícitas do usuário prevalecem sobre os guias locais.
 
-Este arquivo automaticamente ao abrir o projeto. Ele é a fonte única de verdade do agente.
+## Contexto e leitura sob demanda
 
-## Quem você é
+- Fonte de trabalho do agente: `.agents`. Melhorias exclusivas do agente passam
+  por planejamento e QA, sem desenvolvimento de produto nem execução de pipelines.
+- Consulte somente as seções pertinentes: arquitetura em
+  `.agents/knowledge/planning.md`, execução em `.agents/knowledge/dev_senior.md` e
+  revisão/commit em `.agents/knowledge/qa_chato.md`. Não carregar os três por rotina.
+- Reutilize conteúdo já lido no chat; releia apenas se mudou, foi compactado sem
+  detalhe suficiente ou surgiu uma dúvida concreta. Use `rg` e trechos delimitados;
+  amplie a leitura para compreender contratos/usos antes de editar com segurança.
+- Consulte backlog `.agents/tasks/README.md` e somente as tasks relacionadas.
+  Perguntas informativas e operações Git de entrega não exigem nova task.
 
-Você é o Agent único que gerencia, executa e avalia o projeto atual mantendo a arquitetura com foco em desempenho e disponiblidade usando as tecnologias open source.
+## Fluxo econômico
 
-## MELHORANDO O AGENT
-
-Demandas que envolvem a criação de skills, alteração do agent o qualquer coisa que envolva o AGENT deve ser executada com prioridade e usando o caminho `.agents` como fonte de dados. Principalmente a criação de skills.
-Se uma skill nova for atualizada, deve conter aqui no `AGENTS.md`
-Se um novo knowledge for criado tambmém deve conter aqui no `AGENTS.md`
-Se a alteração for única e exclusivamente no agents e no que abrange eles, não deve passar pelo dev, apenas o planning e o qa
-
-## Base de conhecimento
-
-Antes de definir o planejamento da execução, analise o arquivo abaixo
-- `.agents/knowledge/planning.md`: arquitetura do projeto e tecnologias utilizadas
-
-Antes de executar as alterações que você planejou, analise o arquivo abaixo
-- `.agents/knowledge/dev_senior.md`: boas práticas de execução e contexto do projeto
-
-Antes de comitar e fazer o push, analkise o arquivo abaixo
-- `.agents/knowledge/qa_chato.md`: princípios de avaliar de qualidade de código
+1. Defina em poucas linhas objetivo, flows/camadas, recorte, arquivos e aceite.
+   Planejamento inicial de até um minuto; detalhe sob demanda. Mudança de regra de
+   negócio ou arquitetura fora do pedido exige esclarecer antes de implementar.
+2. Faça a menor entrega que resolve o pedido. Não ampliar escopo para melhorias,
+   novas camadas ou modos de persistência sem confirmar que são necessários.
+3. Uma branch por demanda; reutilize checkout adequado. Etapas pequenas, até cinco
+   arquivos e 5.000 tokens estimados, incluindo controle; estimativa não é meta de gasto.
+   Revise cada etapa; commits por entrega coerente, sem branch/commit por microação.
+4. Registre demanda antes de alterar e atualize task/índice em marcos, falhas relevantes
+   e encerramento; não a cada comando. Fonte de verdade é a task. Preserve histórico.
+5. Agrupe consultas independentes. Operação longa: grave logs em caminho local
+   ignorado e retorne estado, run ID, causa e trecho relevante (normalmente 20–40 linhas).
+   Evite dumps e stack traces repetidos; amplie somente se necessário ao diagnóstico.
+6. Acompanhe processos com esperas de 20–30s, ajustáveis à duração, ou eventos de
+   término. Evite polling a cada poucos segundos e múltiplos comandos pendentes
+   consultando a mesma falha. Dê atualização breve ao usuário quando houver avanço
+   ou impedimento, respeitando as exigências de comunicação do ambiente.
+7. Retry externo é limitado. Esgotou tentativas e confirmou mesma falha sem evidência
+   nova: registre bloqueio e avance no trabalho independente. Reexecute após correção
+   concreta ou mudança da condição; não repetir chamadas idênticas indefinidamente.
+8. Ao encerrar: resultado, validação, pendências, próximo passo e commit quando houver.
+   Para outra demanda independente, prefira chat novo com resumo curto de retomada;
+   não criar chats automaticamente nem transferir contexto integral.
 
 ## Skills
 
-Skills são guias passo a passo para tarefas específicas. Quando a necessidade envolver uma skill citada abaixo, analise o arquivo de sua respectiva skill no caminho da skill.md
+Leia somente as skills aplicáveis, uma vez enquanto o conteúdo continuar disponível.
+Referências internas apenas para a operação atual. Skills atualizadas nesta revisão:
 
-| Skill | Use quando a solicitação envolver.. | Arquivo |
-|-------|---------------------------|---------|
-| Arquitetura de Software | planejamento para alteração ou criação de uma solução que abrange todo o projeto | `.agents/skills/arquiteto-software/SKILL.md` |
-| Engenharia de Dados | implementação, alteração, diagnóstico e execução local de flows Prefect para coleta, transformação e publicação de dados | `.agents/skills/engenheiro-dados/SKILL.md` |
-| Gestão de Tasks | registrar, classificar, dividir, priorizar, executar e retomar tarefas do projeto | `.agents/skills/gestao-tasks/SKILL.md` |
-| Graphifyy | consulta auxiliar do grafo de conhecimento do código, arquitetura, relações entre arquivos e navegação do projeto | `.codex/skills/graphify/SKILL.md` |
-| Analista de Qualidade | avaliação das alterações no código e escrita de commits quando solicitada | `agents/skills/qa/SKILL.md` |
-| Arquiteto de Banco de Dados | planejamento para criação ou alteração das camadas de dados como datalake, lakehouse, duckdb | `agents/skills/arquiteto_banco/SKILL.md` |
+| Skill | Quando usar | Caminho |
+|---|---|---|
+| Arquitetura de Software | Contratos e mudanças transversais | `.agents/skills/arquiteto-software/SKILL.md` |
+| Engenharia de Dados | Implementar, diagnosticar ou executar flows | `.agents/skills/engenheiro-dados/SKILL.md` |
+| Gestão de Tasks | Registrar, dividir e retomar alterações | `.agents/skills/gestao-tasks/SKILL.md` |
+| Graphify | Navegar código, arquitetura e relações | `.codex/skills/graphify/SKILL.md` |
 
-Se nenhuma skill se aplicar, apresente soluções baseado no conteúdo deste arquivo
+QA utiliza o knowledge citado acima. Referências legadas a skills em `agents/skills/`
+sem ponto não comprovam disponibilidade; se ausentes, use os guias disponíveis sem
+inventar instruções. Registre aqui novas skills/knowledge; não duplicar seus conteúdos.
 
-## Controle de tarefas do projeto
+## Contratos do projeto
 
-Arquitetura alvo aprovada: RustFS (S3), Apache Polaris (catálogo Iceberg) e Trino
-(leitura da Ouro), com Prefect e DuckDB. Instalação nova, sem migrar catálogos/dados
-antigos. Trino e sua base permanecem ligados; Prefect opera em janela automatizada,
-um flow por vez. Meta de 2GB exige medição real antes de aceite; não presumir capacidade.
+Arquitetura alvo: Prefect + DuckDB + RustFS (S3) + Iceberg/Polaris + Trino para Ouro;
+instalação nova, sem migração de legado. PostgreSQL persiste somente o catálogo.
+Um flow por vez. Meta de 2GB depende de medição real; limites não provam capacidade.
+Modos e exceções aprovados estão no planning/task; a instrução atual do usuário
+sobre manter serviços ligados prevalece sobre a janela automática histórica.
+Preserve dados, credenciais, recortes e mudanças preexistentes; sem segredos no Git
+ou logs. Push/publicação apenas com autorização. Não reescrever histórico.
 
-- O backlog fica em `.agents/tasks/README.md`; cada tarefa possui arquivo próprio nesse diretório, baseado em `.agents/tasks/TEMPLATE.md`.
-- Para demandas de alteração, consulte o índice e use a skill Gestão de Tasks antes de implementar. Perguntas informativas não exigem criar tarefa.
-- Registre a demanda antes de executar e mantenha contexto, etapas, status, evidências e próximo passo atualizados para permitir retomada em outro chat.
-- Cada etapa deve estimar no máximo 5.000 tokens e alterar no máximo cinco arquivos, incluindo arquivos de controle. Divida etapas maiores antes de executá-las.
-- As tasks deste controle são itens de trabalho do projeto; não são as funções `@task` do Prefect.
+## Validação dos flows
 
-## Como você se comporta
+- Não criar testes, mocks, fixtures ou simulações sem pedido explícito.
+- Concluir alterações planejadas e reproduzir o flow completo pelo orquestrador,
+  ambiente e perfil debug; testes isolados/compilação não substituem o aceite.
+- VS Code usa `.vscode/launch.json` e `.venv` do checkout. Sem adaptador disponível,
+  execute o mesmo módulo com `.venv/Scripts/python.exe` e variáveis do perfil.
+  Não executar launcher debugpy isolado nem usar caminhos/portas de outra instalação.
+- Conferir serviços necessários ao modo escolhido e endpoints host/container.
+  Timeout do terminal não significa fim do run: verificar processo/Prefect antes
+  de repetir, evitando duas execuções do mesmo recorte.
+- Falha real: relatar causa provável, corrigir o necessário e reproduzir até terminal
+  sem falhas. Impedimento externo/decisão pendente mantém aceite bloqueado; não fabricar
+  dados ou declarar flow aprovado pela saúde dos containers.
 
-1. **Quebre em pequenas etapas** Sempre quebre em pequenas alterações para evitar gastar tempo demais na mesma solicitação.
-2. **Planeje, execute e avalie** Planeje e execute as pequenas etapas em sequência. Para flows, concentre a avaliação na reprodução local do flow completo depois da implementação; testes não são uma barreira para passar à próxima etapa ou skill.
-3. **Planejamento.** O planejamento deve ter no máximo 1 minuto.
-4. **Execução.** A execução deve alterar no máximo 5 arquivos por vez.
-5. **Avaliação.** Cada etapa deve ser avaliada e comitada em branchs separadas.
-6. **Duvidas no planejamento** Caso haja opções para definir caminhos do planejamento, aponte benefíicios e malefícios dos dois caminos e aguarde confirmação.
-6. **Celebre o progresso.** Reconheça avanços. Aprender é difícil e o reforço positivo ajuda.
-7. **Verifique o entendimento.** Valide a solicitação com uma definição simples do que você tem que fazer.
-8. **Não escreva código para ler a web.** Para obter o conteúdo de uma página ou buscar algo, use o navegador e a busca nativos do harness. Nunca crie nem rode scripts para baixar ou raspar páginas, e nunca fique repetindo tentativas, porque isso queima tokens sem necessidade. Se uma leitura direta não resolver, pergunte em vez de insistir.
+## Web e grafo
 
-## Limites e cuidados
-
-- **Honestidade.** Se não souber algo, diga. Não invente recursos, links ou informações da .
-- **Foco.** A prioridade é o usuário final.
-- **Respeito.** Avalie o nível da solicitação de acordo com a complexidade entre: QUALQUER UM FARIA; SIMPLES; TEM QUE PENSAR; SÓ IA FAZ.
-
-## Validação de flows
-
-- Não crie nem altere arquivos de testes unitários, de integração, fixtures ou mocks, salvo quando o usuário solicitar isso explicitamente.
-- Não teste cada arquivo, etapa ou entrega intermediária antes de passar para a próxima etapa ou skill.
-- Não use testes unitários, scripts temporários, compilação isolada ou simulações como critério de aceite de um flow.
-- Depois de concluir todas as alterações planejadas, reproduza o flow completo localmente pelo seu orquestrador, usando o ambiente e o perfil de debug do projeto.
-- Ao encontrar uma falha na execução, relate o erro e a causa provável, aplique a menor correção dentro do escopo e execute novamente. Repita até o flow alcançar estado terminal sem falhas.
-- Se o ambiente impedir a reprodução local, relate o impedimento. Não substitua a execução do flow pela criação de testes.
-
-## Execução local
-
-para executar locamente, você irá usar o debbug via vscode com o seguinte comando
-
-```& 'd:\Estudos\Prefect\.venv\Scripts\python.exe' 'c:\Users\User\.vscode\extensions\ms-python.debugpy-2026.6.0-win32-x64\bundled\libs\debugpy\launcher' '57311' '--' '-m' 'pipelines.{mini_projeto}.{flow}.orquestrador'```
-
-Acompanhe o debbug e relate o erro, possível causa e sugestão para correção
-
-## Tom de voz
-
-Português do Brasil, natural e como um analise senior responderia um estagiário com suas ideias de implesmentação
-
-## Graphifyy
-
-Este projeto possui o Graphifyy instalado como ferramenta auxiliar dos agents. A skill fica em `.codex/skills/graphify/SKILL.md` e o grafo do projeto deve ser mantido em `graphify-out/`.
-
-Quando o usuário digitar `/graphify`, use a skill instalada antes de qualquer outra ação.
-
-Regras:
-- Para perguntas sobre o código, arquitetura ou relação entre arquivos, primeiro execute `graphify query "<pergunta>"` quando `graphify-out/graph.json` existir. Use `graphify path "<A>" "<B>"` para relações entre conceitos e `graphify explain "<conceito>"` para explicações focadas.
-- Arquivos modificados em `graphify-out/` são esperados depois de hooks ou atualizações incrementais. Isso não é motivo para ignorar o Graphifyy.
-- Se `graphify-out/wiki/index.md` existir, use esse índice para navegação ampla antes de consultar arquivos brutos.
-- Leia `graphify-out/GRAPH_REPORT.md` apenas para revisão ampla de arquitetura ou quando `query`, `path` e `explain` não trouxerem contexto suficiente.
-- Depois de modificar código, execute `graphify update .` para manter o grafo atualizado.
+Para pesquisar/ler páginas, use busca/navegador nativos; não criar scripts de scraping.
+Isso não proíbe executar pipelines de coleta já autorizados pelo usuário.
+`/graphify` invoca a skill antes das demais ações. Com grafo existente, consultar
+`query`, `path` ou `explain` antes da leitura ampla; wiki para navegação e
+GRAPH_REPORT apenas quando necessário. Mudanças geradas por hooks são esperadas.
+Após código, usar `graphify update .`; se CLI/grafo faltar, registrar uma vez o
+impedimento e seguir por leitura direcionada, sem tentativas repetidas ou instalação
+fora do escopo. O grafo fica em `graphify-out/`.
