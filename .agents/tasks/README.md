@@ -22,6 +22,10 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | [TASK-0012](TASK-0012-capacidade-wsl.md) | Ajustar capacidade do WSL | infraestrutura | melhoria | P1 | em_revisao | Interfaces HTTP 200; corrigir deployment Worker e validar carga |
 | [TASK-0013](TASK-0013-reduzir-imagem-python.md) | Reduzir imagem Python | docker | melhoria | P2 | backlog | Medir camadas da imagem nova |
 | [TASK-0014](TASK-0014-retencao-docker.md) | Definir retenção de imagens e cache | docker | manutencao | P2 | backlog | Classificar candidatos sem apagar dados |
+| [TASK-0015](TASK-0015-base-testes-carga.md) | Criar executor e métricas de carga | observabilidade | criacao | P2 | backlog | Definir quatro níveis, limites e contrato de coleta |
+| [TASK-0016](TASK-0016-carga-individual-servicos.md) | Testar carga individual por serviço | observabilidade | criacao | P2 | backlog | Após 0015, implementar adaptadores e baselines |
+| [TASK-0017](TASK-0017-carga-conjunta-lakehouse.md) | Testar carga conjunta e recuperação | observabilidade | criacao | P2 | backlog | Após baselines, executar misturas graduais |
+| [TASK-0018](TASK-0018-relatorio-capacidade-producao.md) | Analisar capacidade para produção | observabilidade | investigacao | P2 | backlog | Consolidar curvas, limites e recomendações |
 
 Demandas registradas a partir das solicitações do usuário; classificação secundária no arquivo de cada tarefa.
 
