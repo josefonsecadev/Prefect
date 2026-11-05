@@ -24,6 +24,21 @@ PostgreSQL é destinado à persistência interna do catálogo e não deve recebe
 
 ## Arquitetura de dados
 
+### Validação incremental aprovada em 2026-11-04: Parquet direto no RustFS
+
+Por solicitação do usuário, TASK-0019 entrega execução dos flows de dados sem
+catálogo/Trino nesta fase. Modo explícito `PIPELINE_STORAGE_FORMAT=parquet` publica
+Prata/Ouro tipadas como arquivos Parquet no RustFS, mantendo o modo `iceberg`
+existente como default. Bronze mantém o formato recebido/contrato já implementado.
+Leituras entre flows usam esses arquivos no mesmo modo. Caminho:
+`<camada>/<projeto>/<pipeline>/<tabela>/<coluna>=<recorte>/data.parquet`, sem recorte
+quando tabela integral. Escrita serial e substituição de uma chave por recorte,
+sem remoção antecipada; validar Parquet/schema/contagem e readback remoto.
+Não há garantia transacional multiobjeto, catálogo ou snapshots neste modo.
+Legislaturas e deputados: Bronze/Prata; despesas: Bronze/Prata/Ouro. Manutenção
+Iceberg permanece fora desta validação. Esta entrega não conclui aceites Iceberg,
+permissões SQL ou Trino e não substitui a arquitetura alvo abaixo.
+
 ### Decisão aprovada: ambiente novo com RustFS, Polaris e Trino
 
 Em 2026-11-03, o usuário escolheu RustFS como armazenamento, Apache Polaris como

@@ -26,6 +26,7 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | [TASK-0016](TASK-0016-carga-individual-servicos.md) | Testar carga individual por serviço | observabilidade | criacao | P2 | backlog | Após 0015, implementar adaptadores e baselines |
 | [TASK-0017](TASK-0017-carga-conjunta-lakehouse.md) | Testar carga conjunta e recuperação | observabilidade | criacao | P2 | backlog | Após baselines, executar misturas graduais |
 | [TASK-0018](TASK-0018-relatorio-capacidade-producao.md) | Analisar capacidade para produção | observabilidade | investigacao | P2 | backlog | Consolidar curvas, limites e recomendações |
+| [TASK-0019](TASK-0019-flows-parquet-rustfs.md) | Executar flows com Parquet no RustFS | pipelines | melhoria | P1 | em_execucao | Implementar modo Parquet e reproduzir flows completos |
 
 Demandas registradas a partir das solicitações do usuário; classificação secundária no arquivo de cada tarefa.
 
