@@ -65,3 +65,9 @@
 - Código revisado; validação executável de Legislaturas pendente da disponibilidade da API. Deputados depende da Prata de Legislaturas; não alegar aceite sem dados.
 - Worker reconstruído com correção do deployment, quatro deployments registrados e ProcessWorker bb81604f-7d4a-4c1c-bd76-8ec4bf48854d conectado ao pool local. RustFS/Server saudáveis; somente estes e Worker ligados.
 - Próximo: executar Despesas 2025, independente de Legislaturas, corrigindo erros concretos. Sem catálogo/Trino.
+
+## E04/Despesas — primeira execução real
+- Orquestrador 8592d37f-6675-43de-8594-fd7d80eed443: Bronze Completed; Prata Completed com readback Parquet (209081 linhas) em prata/camara_deputados/despesas/despesas/numAno=2025/data.parquet. Ouro falhou em validação preexistente: 937 linhas sem ideCadastro.
+- Diagnóstico sobre Parquet real: 937 sem deputado, zero mês inválido, zero valor ausente. Nomes são lideranças partidárias; não descartar nem atribuir ID fictício. Usuário consultado sobre manter Ouro somente deputados com exclusões explicitamente reconciliadas ou ampliar contrato; decisão pendente.
+- Correções independentes: NO_CACHE nas tasks de Despesas; falhar em HTTP não sucesso e ZIP inválido antes da escrita; logs Prata mostram formato correto. Não alterada regra Ouro até decisão.
+- Reprodução completa pós-correção permanece pendente de tratamento explícito das lideranças; não afirmar versão utilizável integral.
