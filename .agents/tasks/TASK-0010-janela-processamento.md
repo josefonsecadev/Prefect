@@ -54,3 +54,10 @@ passou, mas batch, trava concorrente, consultas contínuas e pico de memória n�
 foram validados. Medição de 2GB permanece obrigatória e não demonstrada. E03
 documentada no README sem cadastrar agenda real: usuário não definiu horário.
 Retomar E02 com stack saudável; corrigir apenas falhas reais e registrar evidências.
+
+## Mudança de direção — 2026-11-05
+Por solicitação explícita do usuário, Prefect Server e Worker devem permanecer
+ativos. TASK-0023 removeu infra/batch.py e infra/daily_flows.py e as instruções de
+janela automática. O histórico acima descreve a solução anterior, descontinuada.
+Não retomar batch nem cadastrar agenda externa para esses scripts. A medição de
+capacidade continua pendente e exige replanejamento para operação contínua.

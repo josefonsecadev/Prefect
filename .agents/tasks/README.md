@@ -17,7 +17,7 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | [TASK-0007](TASK-0007-acesso-sql-ouro.md) | Escolher arquitetura de acesso SQL à Ouro | infraestrutura | investigacao | P2 | concluida | Trino + Polaris aprovados; execução nas tasks |
 | [TASK-0008](TASK-0008-implantar-trino.md) | Implantar Trino com Polaris e RustFS | infraestrutura | criacao | P2 | bloqueada | Docker ativo; validar serviço e autenticação |
 | [TASK-0009](TASK-0009-produto-ouro-consumo.md) | Publicar Ouro e validar consumo pelo Trino | dados | criacao | P2 | bloqueada | Docker ativo; validar despesas mensais implementadas |
-| [TASK-0010](TASK-0010-janela-processamento.md) | Automatizar Prefect e medir orçamento de 2GB | orquestracao | criacao | P2 | bloqueada | Docker ativo; executar batch e medir pico real |
+| [TASK-0010](TASK-0010-janela-processamento.md) | Automatizar Prefect e medir orçamento de 2GB | orquestracao | criacao | P2 | bloqueada | Janela abandonada na TASK-0023; replanejar medição em operação contínua |
 | [TASK-0011](TASK-0011-diagnostico-docker-recursos.md) | Diagnosticar stack Docker e recursos | observabilidade | investigacao | P2 | concluida | Diagnóstico entregue; stack instável; seguir TASK-0012 |
 | [TASK-0012](TASK-0012-capacidade-wsl.md) | Ajustar capacidade do WSL | infraestrutura | melhoria | P1 | em_revisao | Interfaces HTTP 200; corrigir deployment Worker e validar carga |
 | [TASK-0013](TASK-0013-reduzir-imagem-python.md) | Reduzir imagem Python | docker | melhoria | P2 | backlog | Medir camadas da imagem nova |
@@ -30,6 +30,7 @@ cada demanda. Cada tarefa fica em `TASK-NNNN-titulo-curto.md`, criada a partir d
 | [TASK-0020](TASK-0020-economia-tokens-agente.md) | Reduzir contexto e repetição do agente | agentes | melhoria | P1 | concluida | Aplicar fluxo econômico nas próximas demandas |
 | [TASK-0021](TASK-0021-acesso-ui-prefect.md) | Corrigir conexão da interface Prefect | docker | correcao | P1 | concluida | Recarregar interface no navegador |
 | [TASK-0022](TASK-0022-env-fixo.md) | Adotar .env fixo e remover gerador | infraestrutura | melhoria | P2 | concluida | Nenhuma |
+| [TASK-0023](TASK-0023-remover-batch.md) | Remover execução por janela | orquestracao | melhoria | P2 | concluida | Nenhuma |
 
 Demandas registradas a partir das solicitações do usuário; classificação secundária no arquivo de cada tarefa.
 

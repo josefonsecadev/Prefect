@@ -111,8 +111,8 @@ publicação externa exige configuração própria de TLS e rede.
 | Polaris | Permanente | http://localhost:8181/api/catalog |
 | PostgreSQL | Permanente | Rede Docker, sem porta publicada |
 | Trino | Permanente | https://localhost:8080 |
-| Prefect Server | Janela de processamento | http://localhost:4200 |
-| Prefect Worker | Janela de processamento | Sem porta publicada |
+| Prefect Server | Permanente | http://localhost:4200 |
+| Prefect Worker | Permanente | Sem porta publicada |
 
 Volumes nomeados novos: rustfs-data, polaris-db-data e prefect-data. Os arquivos
 `.prefect/runtime/writer.env`, `reader.env` e `trino/` também são persistência
@@ -138,29 +138,17 @@ Exemplo com o mesmo entrypoint e ambiente do perfil de debug:
 ./.venv/Scripts/python.exe -m pipelines.camara_deputados.despesas.orquestrador
 ```
 
-## Janela automática do Prefect
+## Operação contínua do Prefect
 
-Deixe a base e o Trino ligados e Prefect desligado antes de iniciar:
+Mantenha Server e Worker ativos com o comando da seção anterior. O profile
+`processing` continua necessário no Compose para iniciar esses serviços.
+Execute os deployments pelo Prefect; não há executor externo que ligue ou desligue
+o servidor por janela. Respeite os pré-requisitos entre pipelines e execute um flow
+por vez. Os scripts de execução por janela foram removidos; não há coleta automática
+de memória por esse mecanismo.
 
-```powershell
-./.venv/Scripts/python.exe -m infra.batch --year 2025
-```
-
-O batch recusa duplicação por trava local, inicia Prefect, executa legislaturas
-como pré-requisito e depois os dois produtos (deputados e despesas), em sequência.
-Na janela automática, o executor usa `compose run --rm` com a imagem do worker,
-sem manter outro processo de polling simultâneo. Deployments pela interface usam
-o serviço worker tradicional iniciado manualmente.
-Só para Worker/Server após confirmar ausência de runs ativos. Em dúvida, deixa
-Prefect ligado e retorna falha. Trino e sua base permanecem ativos.
-
-Agendador de Tarefas do Windows: chamar o Python absoluto da `.venv`, argumentos
-`-m infra.batch --year ANO`, diretório inicial igual à raiz do repositório e opção
-de não iniciar outra instância. Em Linux, o mesmo comando pode ser chamado por
-systemd timer/cron. Nenhum horário foi cadastrado automaticamente.
-
-Amostras dos containers ficam em `.prefect/runtime/memory.jsonl`. Também medir
-memória total do host, OOM e pico real durante consultas/flows: somar limites de
+Para avaliar capacidade, medir memória total do host, OOM e pico real durante
+consultas/flows: somar limites de
 containers não comprova que a máquina toda cabe em 2GB. DuckDB usa uma thread,
 128MB de limite interno e temporários em disco; Python/buffers ficam fora desse limite.
 
@@ -190,7 +178,8 @@ devem negar Prata, DML, DDL e procedures mutáveis; validação real ainda pende
 
 ## Encerrar
 
-Para parar apenas processamento, primeiro confirmar runs terminais:
+Server e Worker devem permanecer ligados na operação normal. Para uma parada
+manual de manutenção, primeiro confirmar runs terminais:
 
 ```powershell
 docker compose --profile processing stop prefect-worker prefect-server
