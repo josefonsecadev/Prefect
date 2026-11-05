@@ -53,3 +53,8 @@
 - E02 implementada em config/conexoes/pipeline: modo validado, credenciais/extensão Iceberg dispensadas no modo Parquet, chave determinística por recorte, schema/count local e readback remoto, leitura de dependências e proibição de snapshot no modo direto.
 - QA documental/diff sem testes isolados; avaliação executável será feita nos orquestradores completos após E03. Até cinco arquivos nesta etapa; índice mantém status em execução.
 - Próxima etapa E03: Ouro deve usar _table_source, corrigir parâmetros deployment e perfil debug; depois execução real.
+
+## E03 — Consumidores e operação
+- Ouro usa fonte conforme modo, sem chamar catálogo em Parquet; deployment de manutenção omite valores null para parâmetros obrigatórios (entrada exigida no disparo).
+- Perfis debug dos três flows com modo Parquet e endpoints host explícitos. Iceberg default preservado fora desses perfis.
+- QA de diff aprovada para iniciar reprodução real; nenhum teste isolado criado. Próximo: E04/legislaturas.

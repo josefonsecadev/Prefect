@@ -11,7 +11,12 @@
       "module": "pipelines.camara_deputados.despesas.orquestrador",
       "cwd": "${workspaceFolder}",
       // "console": "integratedTerminal",
-      "envFile": "${workspaceFolder}/.env"
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "S3_ENDPOINT": "localhost:9000",
+        "PIPELINE_STORAGE_FORMAT": "parquet",
+        "PREFECT_API_URL": "http://127.0.0.1:4200/api"
+      }
     },
 
     {
@@ -27,6 +32,7 @@
       "envFile": "${workspaceFolder}/.env",
       "env": {
         "S3_ENDPOINT": "localhost:9000",
+        "PIPELINE_STORAGE_FORMAT": "parquet",
         "ICEBERG_CATALOG_ENDPOINT": "http://localhost:8181/api/catalog",
         "PREFECT_API_URL": "http://127.0.0.1:4200/api"
       }
@@ -42,6 +48,7 @@
       "envFile": "${workspaceFolder}/.env",
       "env": {
         "S3_ENDPOINT": "localhost:9000",
+        "PIPELINE_STORAGE_FORMAT": "parquet",
         "ICEBERG_CATALOG_ENDPOINT": "http://localhost:8181/api/catalog",
         "PREFECT_API_URL": "http://127.0.0.1:4200/api"
       }

@@ -11,7 +11,7 @@ class PipeOuro(Pipeline):
 
     @flow(name="camara_despesas_ouro", log_prints=True)
     def execute(self, year: int) -> dict:
-        source = self._iceberg_table_identifier("despesas", "prata")
+        source = self._table_source("despesas", "prata")
         # Filtrar antes de materializar: não carregar todos os anos na memória.
         self.duckdb_conn.execute(
             f"CREATE TEMP TABLE despesas_recorte AS SELECT "
