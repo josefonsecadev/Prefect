@@ -1,7 +1,7 @@
 # TASK-0019 — Executar flows de dados com Parquet direto no RustFS
 
 ## Identificação
-- Status: em_execucao
+- Status: bloqueada
 - Categoria: pipelines
 - Tipo: melhoria
 - Etiquetas: [prefect, rustfs, parquet, duckdb, camara-deputados]
@@ -75,3 +75,11 @@
 ## E04/Deputados — dependência ausente
 - Run 3140b1bd-ff5a-4054-94c2-5512ec02715e falhou ao ler a Prata Parquet de Legislaturas, ausente devido aos 504 da fonte. Nenhum dado inventado nem fallback silencioso aplicado.
 - E04 completa permanece pendente. Nenhum ajuste ao flow de Deputados foi feito nesta subetapa, pois ele não chegou à coleta.
+
+## Encerramento parcial e bloqueios de aceite
+- Fonte externa continua 504 para Legislaturas; nenhuma insistência adicional ou dado simulado. Deputados depende dela.
+- Decisão solicitada ao usuário: Ouro somente deputados com auditoria das lideranças excluídas versus ampliar contrato para lideranças; resposta de regra de negócio ainda não recebida. A pergunta posterior sobre a origem da Ouro foi respondida: ela já existia antes desta execução. Não alterar contrato silenciosamente.
+- Artefatos reais no RustFS: Bronze ZIP 2025 com 6901102 bytes; Prata Parquet 2025 com 5551586 bytes e 209081 linhas relidas. Nenhuma Ouro publicada nesta demanda.
+- Grafo: tentativa graphify update . falhou porque CLI não existe no PATH; graphify-out/graph.json ausente. Atualização pendente, sem instalar dependência ou inventar grafo.
+- Configuração e comandos adicionados ao README e .env.example; arquivos .env/runtime não versionados. QA: documentação e diffs revisados; flow integral/reprocessamento ainda não aprovados. Não declarar versão utilizável completa.
+- Retomada exata: decidir regra de lideranças, reproduzir Despesas 2025 até Completed e repetir recorte; quando fonte responder, executar Legislaturas e Deputados 2025, repetir recortes, atualizar evidências e grafo. Manutenção Iceberg, catálogo e Trino continuam fora do escopo.

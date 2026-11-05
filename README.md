@@ -23,6 +23,55 @@ executar o setup e validar as tasks. Nenhum volume antigo foi apagado.
 
 ## Instalação nova
 
+### Execução incremental com Parquet direto no RustFS
+
+Para a validação de coleta/transformação sem Polaris ou Trino, configure no `.env`
+local `PIPELINE_STORAGE_FORMAT=parquet`. O padrão da arquitetura continua `iceberg`.
+O modo Parquet dispensa credenciais e autenticação do catálogo; os buckets
+`bronze`, `prata` e `ouro` devem existir no RustFS, com acesso S3 pelo `.env`.
+Suba somente os serviços necessários, sem iniciar bootstraps do catálogo:
+
+```powershell
+docker compose --profile processing up -d --no-deps rustfs prefect-server
+```
+
+O host deve usar `S3_ENDPOINT=localhost:9000` e
+`PREFECT_API_URL=http://127.0.0.1:4200/api`. Os perfis VS Code dos três flows usam
+esses endpoints e modo Parquet. Sem adaptador de debug disponível, execute os
+mesmos orquestradores com `.venv/Scripts/python.exe`, uma execução por vez:
+
+```powershell
+$env:PIPELINE_STORAGE_FORMAT='parquet'
+$env:S3_ENDPOINT='localhost:9000'
+$env:PREFECT_API_URL='http://127.0.0.1:4200/api'
+./.venv/Scripts/python.exe -m pipelines.camara_deputados.legislaturas.orquestrador
+./.venv/Scripts/python.exe -c "from pipelines.camara_deputados.deputados.orquestrador import executar_pipeline_deputados; executar_pipeline_deputados(ano_inicial=2025, ano_final=2025)"
+./.venv/Scripts/python.exe -c "from pipelines.camara_deputados.despesas.orquestrador import executar_pipeline_despesas; executar_pipeline_despesas(year=2025)"
+```
+
+Não prossiga para Deputados se Legislaturas falhar. Bronze mantém o contrato
+existente: Legislaturas em Parquet, Deputados em JSON paginado e Despesas em ZIP
+CSV. Prata/Ouro são gravadas em
+`s3://<camada>/<projeto>/<pipeline>/<tabela>/<coluna>=<recorte>/data.parquet`;
+tabelas integrais não possuem o trecho de partição. Escrita serial substitui
+somente a chave do recorte, valida schema/contagem local e relê o Parquet remoto.
+Não oferece transações multiobjeto nem snapshots do Iceberg.
+
+Para usar deployments com o código atual:
+
+```powershell
+docker compose --profile processing build prefect-worker
+docker compose --profile processing up -d --no-deps prefect-worker
+```
+
+Estado real em 2026-11-04, registrado na TASK-0019: Worker registrou deployments e
+conectou; Despesas 2025 concluiu Bronze/Prata e publicou 209.081 linhas na Prata.
+Ouro falhou por 937 despesas de lideranças sem ID de deputado; tratamento de
+negócio ainda pendente, nenhum descarte aplicado. Legislaturas falhou por 504 da
+API e Deputados pela ausência da Prata de Legislaturas. Portanto, a versão completa
+dos flows ainda não tem aceite; não interpretar arquivos publicados como sucesso
+do orquestrador inteiro. Catálogo/Trino não foram validados nesta fase.
+
 Pré-requisitos: Docker com engine Linux, Compose V2, Python 3.14.6 e Poetry para
 debug no host. Não é necessário copiar dados ou catálogos do ambiente anterior.
 Novos volumes são usados; MinIO e Lakekeeper não integram o Compose padrão.
