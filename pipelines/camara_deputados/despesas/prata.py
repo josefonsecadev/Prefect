@@ -4,6 +4,7 @@ import zipfile
 from io import BytesIO
 
 from prefect import flow, task
+from prefect.cache_policies import NO_CACHE
 
 from utils.pipeline import Pipeline
 
@@ -31,12 +32,12 @@ class PipePrata(Pipeline):
 
     @flow(
         name="camara_despesas_prata",
-        description="Lê a camada bronze e publica um snapshot Iceberg.",
+        description="Lê a camada Bronze e publica a Prata no formato configurado.",
         log_prints=True
     )
     def execute(self, year: int | None = None):
         resolved_year = resolve_year(year)
-        self.log.info(f"[PRATA] INICIANDO PUBLICAÇÃO ICEBERG DE {resolved_year}")
+        self.log.info("[PRATA] INICIANDO PUBLICAÇÃO %s DE %s", self.storage_format, resolved_year)
 
         despesa_bytes = self._read_bronze(resolved_year)
 
@@ -50,9 +51,10 @@ class PipePrata(Pipeline):
             replace_by={"numAno": str(resolved_year)}
         )
 
-        self.log.info(f"[PRATA] SNAPSHOT ICEBERG PUBLICADO: {snapshot}")
+        self.log.info("[PRATA] PUBLICAÇÃO CONFIRMADA: %s", snapshot)
+        return snapshot
 
-    @task
+    @task(cache_policy=NO_CACHE)
     def _read_bronze(self, year: int) -> BytesIO:
         """
         Faz a leitura da camada bronze da pipeline e retorna o arquivo.
@@ -60,7 +62,7 @@ class PipePrata(Pipeline):
         bronze = PipeBronze()
         return bronze._read_arquivo(str(year))
 
-    @task
+    @task(cache_policy=NO_CACHE)
     def _transform_table(self,
                          tabela: str,
                          zip_bytes: BytesIO,

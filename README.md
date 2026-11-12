@@ -1,372 +1,168 @@
-# Pipeline de dados
+# Lakehouse da Câmara dos Deputados
 
-## Visão geral
-
-Este projeto implementa pipelines de dados orquestradas pelo Prefect. O DuckDB
-executa as transformações, o MinIO fornece armazenamento compatível com S3 e o
-Apache Iceberg organiza as tabelas analíticas. O Lakekeeper é o catálogo REST
-utilizado pelo Iceberg.
-
-| Componente | Responsabilidade |
-|---|---|
-| Prefect Server | API, interface web, agendamentos e estado das execuções |
-| Prefect Worker | Execução dos flows e tasks |
-| DuckDB | Leitura, transformação e publicação dos dados |
-| MinIO | Armazenamento dos arquivos brutos e das tabelas Iceberg |
-| Apache Iceberg | Formato de tabela, schema, partições, snapshots e transações |
-| Lakekeeper | Catálogo REST das tabelas Iceberg |
-| PostgreSQL | Persistência interna do Lakekeeper |
-
-## Arquitetura de dados
-
-O projeto segue a arquitetura medalhão:
+Pipelines Python/Prefect coletam dados da Câmara, transformam com DuckDB e
+publicam tabelas Iceberg no RustFS. Nessie mantém o catálogo Iceberg REST e
+ClickHouse oferece consultas SQL de leitura para consumidores.
 
 ```text
-Fonte de dados
-    |
-    v
-Bronze no MinIO
-    |  arquivos JSON, CSV e ZIP recebidos das fontes
-    v
-Prata no Iceberg
-    |  dados tratados, tipados, particionados e versionados
-    v
-Ouro no Iceberg
-       tabelas agregadas destinadas a APIs, dashboards e usuários finais
+Fontes → Bronze (RustFS) → Prata/Ouro (Iceberg no RustFS)
+                                  ↑ catálogo Nessie
+                                  ↓ consultas SQL
+                              ClickHouse
 ```
 
-O bucket `bronze` recebe os arquivos brutos. O bucket `iceberg` contém o
-warehouse gerenciado pelo Lakekeeper; não se deve criar, mover ou excluir
-manualmente objetos dentro desse warehouse.
+## Estado
 
-Prata e ouro são camadas lógicas representadas por namespaces no catálogo.
-Como o DuckDB endereça tabelas no formato `catálogo.schema.tabela`, cada
-namespace combina a camada e o projeto:
+A substituição de Polaris/PostgreSQL/Trino por Nessie/ClickHouse está em andamento
+(TASK-0025). Integrações de Iceberg com Nessie e ClickHouse devem ser validadas no
+ambiente Docker; confira o estado atualizado em [.agents/tasks/README.md](.agents/tasks/README.md).
+Os limites de memória do Compose ainda não comprovam capacidade total de 2GB.
 
-```text
-lakehouse
-├── prata_camara_deputados
-│   ├── deputados
-│   └── despesas
-└── ouro_<projeto>
-    └── <tabela destinada ao consumo>
+O flow de Legislaturas já grava Iceberg pelo Nessie. O ClickHouse lista a tabela,
+mas a leitura via catálogo falha com HTTP 403 no RustFS por uma incompatibilidade
+aberta no `DataLakeCatalog`; portanto, o acesso SQL às tabelas ainda não está pronto.
+
+## Configuração
+
+O projeto usa um `.env` fixo, ignorado pelo Git. Preserve o arquivo e as credenciais
+locais existentes. Em nova instalação, copie `.env.example` para `.env` e configure
+os segredos de RustFS/S3 e ClickHouse. `S3_ACCESS_KEY`/`S3_SECRET_KEY` precisam ter
+acesso de leitura e escrita ao bucket `iceberg`; `RUSTFS_ACCESS_KEY`/
+`RUSTFS_SECRET_KEY` são as credenciais administrativas do serviço. Não versionar
+`.env`, certificados ou chaves.
+
+O novo warehouse Nessie usa `s3://iceberg/nessie-warehouse`, separado dos objetos
+legados em `s3://iceberg/warehouse`. Volumes antigos de PostgreSQL/Polaris, se
+existirem, não são montados nem removidos. Não execute `down -v` para reiniciar.
+
+Pré-requisitos: Docker com engine Linux, Compose V2, Python 3.14.6 e Poetry para
+execução/debug no host.
+
+```powershell
+$env:POETRY_VIRTUALENVS_IN_PROJECT='true'
+poetry install --no-root
+docker compose --profile processing up --build -d
 ```
 
-Somente a camada ouro deve ser disponibilizada para dashboards e usuários
-finais. Em produção, consumidores devem acessar as tabelas por uma engine SQL
-com permissão somente de leitura sobre ouro, sem receber credenciais diretas do
-MinIO. Bronze e prata permanecem internos às pipelines.
+O Compose inicia RustFS, Nessie, ClickHouse, Prefect Server e Worker. Server e
+Worker permanecem ligados; deployments são registrados pelo Worker. Para verificar:
 
-Os buckets `prata` e `ouro` ainda são criados pelo Compose para compatibilidade,
-mas as pipelines de deputados e despesas publicam a camada prata no warehouse
-Iceberg.
-
-## Iceberg e Lakekeeper
-
-O Iceberg não é um servidor nem um banco de dados. Ele é o formato que descreve
-os arquivos de uma tabela, seus schemas, partições e snapshots. Os dados das
-tabelas continuam armazenados como objetos no MinIO.
-
-O Lakekeeper é o servidor de catálogo. Ele relaciona o nome lógico de uma tabela
-com seus metadados no MinIO e coordena os commits. O PostgreSQL do serviço
-`lakekeeper-db` guarda somente o estado interno do catálogo; ele não armazena as
-linhas de deputados ou despesas.
-
-```text
-DuckDB
-   |
-   | API REST Iceberg
-   v
-Lakekeeper --------> PostgreSQL
-   |
-   | dados e metadados
-   v
-MinIO
+```powershell
+docker compose --profile processing ps
 ```
 
-As tabelas prata atuais são:
+Endpoints locais: Prefect `http://localhost:4200`, Nessie
+`http://localhost:19120/iceberg`, ClickHouse HTTP `localhost:8123`, ClickHouse
+Native `localhost:9002`, RustFS S3 `localhost:9000` e console `localhost:9001`.
+Dentro dos containers, os hosts são `prefect-server`, `nessie` e `rustfs`.
+
+## Flows
+
+Os perfis do VS Code em `.vscode/launch.json` usam o `.env` e o ambiente `.venv`.
+Execute um flow por vez. Legislaturas deve preceder Deputados. Despesas percorre
+Bronze → Prata → Ouro.
+
+```powershell
+./.venv/Scripts/python.exe -m pipelines.camara_deputados.legislaturas.orquestrador
+./.venv/Scripts/python.exe -m pipelines.camara_deputados.deputados.orquestrador
+./.venv/Scripts/python.exe -m pipelines.camara_deputados.despesas.orquestrador
+```
+
+## Criar um flow novo
+
+1. Crie `pipelines/<dominio>/<flow>/`. Adicione `info.py` para nomes, caminhos e
+   schemas; crie `bronze.py`, `prata.py` e `ouro.py` somente para as camadas usadas.
+2. Em `info.py`, declare o schema Iceberg com os tipos DuckDB, por exemplo:
+
+   ```python
+   class Info:
+       PROJECT_NAME = "meu_dominio"
+       PIPELINE_NAME = "minha_tabela"
+       SCHEMA = {"id": "BIGINT", "nome": "VARCHAR"}
+   ```
+
+3. Em cada camada, implemente o processamento usando `Pipeline` e os metadados de
+   `Info`. O `orquestrador.py` define o flow Prefect e chama as camadas na ordem.
+   Ao publicar no Iceberg, `_save_iceberg` cria o namespace e a tabela se ainda não
+   existirem; não há cadastro em arquivo central de tabelas ou `rules`.
+4. Adicione uma entrada à lista `deployments` em `prefect.yaml`, usando o caminho
+   da função de entrada e declarando os parâmetros aceitos pelo orquestrador:
+
+   ```yaml
+   - name: meu_dominio_minha_tabela
+     entrypoint: pipelines/meu_dominio/minha_tabela/orquestrador.py:executar_pipeline
+     work_pool:
+       name: local
+     schedule: null
+     parameters: {}
+     tags:
+       - meu_dominio
+   ```
+
+5. Execute pelo ambiente local para depurar e reconstrua o Worker para registrar o
+   deployment no Prefect:
+
+   ```powershell
+   ./.venv/Scripts/python.exe -m pipelines.meu_dominio.minha_tabela.orquestrador
+   docker compose --profile processing up --build -d prefect-worker
+   ```
+
+O formato `PIPELINE_STORAGE_FORMAT=iceberg` usa Nessie. O modo `parquet` legado
+publica arquivos diretamente e não oferece catálogo ou snapshots Iceberg. Em
+execuções anteriores (TASK-0019), Despesas 2025 concluiu Bronze/Prata, mas Ouro
+falhou para 937 registros sem ID de deputado; Legislaturas e Deputados também
+falharam na API/pré-requisitos. Esses resultados não validam os flows completos.
+
+## Consultar a Ouro
+
+O acesso por nome no catálogo ClickHouse/Nessie ainda não está disponível. A leitura
+Iceberg direta foi validada com `icebergS3()` usando o caminho completo da tabela no
+RustFS e o usuário administrativo do ClickHouse. Exemplo:
 
 ```sql
-lakehouse.prata_camara_deputados.deputados
-lakehouse.prata_camara_deputados.despesas
+SELECT count(), min(id), max(id)
+FROM icebergS3('http://rustfs:9000/iceberg/nessie-warehouse/<namespace>/<tabela>/');
 ```
 
-Cada reprocessamento substitui somente a partição anual correspondente e gera
-um novo snapshot. Exemplos de consulta no DuckDB, depois de anexar o catálogo:
+O teste na tabela `prata_camara_deputados.legislaturas` retornou 57 linhas (IDs 1–57).
+O perfil SQL `analista` não pode executar essa função em `readonly=1`; não compartilhe
+credenciais administrativas do ClickHouse com consumidores. A descoberta automática
+do path pelo Nessie e a exposição somente leitura por nome continuam pendentes na TASK-0025.
+Para a árvore JDBC do DBeaver, o perfil habilita
+`show_data_lake_catalogs_in_system_tables`; após reiniciar o ClickHouse, desconecte,
+reconecte e atualize (`Refresh`) a conexão no DBeaver para carregar as tabelas.
+
+### Credenciais S3
+
+O worker do Prefect entrega `RUSTFS_ACCESS_KEY`/`RUSTFS_SECRET_KEY` ao DuckDB como
+credenciais S3 para ler e escrever nos flows. O Prefect Server não recebe essas
+chaves. Os perfis de debug locais usam `S3_ACCESS_KEY`/`S3_SECRET_KEY` do `.env`,
+que devem corresponder às credenciais administrativas. O ClickHouse usa
+`CLICKHOUSE_S3_ACCESS_KEY`/`CLICKHOUSE_S3_SECRET_KEY`,
+com uma identidade RustFS separada. A política versionada em
+`infra/rustfs/policies/clickhouse-iceberg-read.json` permite apenas listar e ler o
+prefixo `iceberg/nessie-warehouse/`; não permite escrita. Crie/anexe essa política
+ao usuário `clickhouse_iceberg_ro` no RustFS e mantenha as chaves no `.env` local.
+O perfil SQL `analista` é independente dessa credencial S3 e segue `readonly=1`.
+
+Quando esse acesso estiver pronto, a consulta esperada da Ouro será:
 
 ```sql
-SELECT *
-FROM lakehouse.prata_camara_deputados.deputados;
-
-SELECT *
-FROM iceberg_snapshots(lakehouse.prata_camara_deputados.deputados)
-ORDER BY timestamp_ms DESC;
-
-SELECT *
-FROM lakehouse.prata_camara_deputados.deputados
-AT (VERSION => <snapshot_id>);
+SELECT ano, mes, deputado_id, nome_deputado,
+       quantidade_lancamentos, valor_liquido
+FROM lakehouse.`ouro_camara_deputados.despesas_mensais`
+WHERE ano = 2025
+ORDER BY valor_liquido DESC;
 ```
 
-## Serviços do Docker Compose
-
-Serviços que permanecem online:
-
-| Serviço | Função |
-|---|---|
-| `prefect-server` | Interface web, API e orquestração |
-| `prefect-worker` | Execução das pipelines |
-| `minio` | Armazenamento de objetos |
-| `lakekeeper-db` | PostgreSQL interno do catálogo |
-| `lakekeeper` | Catálogo REST Iceberg |
-
-Serviços de inicialização que encerram após executar com sucesso:
-
-| Serviço | Função |
-|---|---|
-| `createbuckets` | Cria os buckets necessários no MinIO |
-| `lakekeeper-migrate` | Aplica as migrações do banco do Lakekeeper |
-| `lakekeeper-bootstrap` | Inicializa o catálogo e registra o warehouse |
-
-É normal que os três serviços de inicialização apareçam com estado `Exited (0)`.
-
-## Estrutura do projeto
-
-```text
-.
-├── pipelines/
-│   └── camara_deputados/
-│       ├── deputados/
-│       │   ├── bronze.py
-│       │   ├── prata.py
-│       │   ├── info.py
-│       │   └── orquestrador.py
-│       └── despesas/
-│           ├── bronze.py
-│           ├── prata.py
-│           ├── info.py
-│           └── orquestrador.py
-├── utils/
-│   ├── config.py
-│   ├── conexoes.py
-│   └── pipeline.py
-├── docker-compose.yml
-├── Dockerfile
-├── prefect.yaml
-└── deployment.py
-```
-
-Cada domínio de pipeline segue estas convenções:
-
-- `bronze.py`: extração e armazenamento dos dados brutos;
-- `prata.py`: transformação e publicação da tabela Iceberg;
-- `ouro.py`: agregações destinadas ao consumo, quando existirem;
-- `info.py`: nomes, schemas e outras definições estáticas;
-- `orquestrador.py`: flow principal que encadeia as camadas;
-- as classes de camada usam os nomes `PipeBronze`, `PipePrata` e `PipeOuro`;
-- o método público de cada classe é `execute`, decorado com `@flow`;
-- operações internas executadas pelo Prefect são decoradas com `@task`.
-
-Funcionalidades compartilhadas ficam em `utils`:
-
-- `Config`: leitura e validação das variáveis de ambiente;
-- `Conexoes`: conexões com MinIO, DuckDB e catálogo Iceberg;
-- `Pipeline`: leitura, transformação e publicação reutilizáveis.
-
-## Execução local
-
-### Pré-requisitos
-
-- Docker Desktop com Docker Compose;
-- Python `3.14.6` e Poetry, caso os flows também sejam executados pelo host;
-- portas `4200`, `8181`, `9000` e `9001` disponíveis;
-- diretório `D:/Dados` disponível para o volume local do MinIO. Em outro
-  sistema operacional, ajuste o volume do serviço `minio` no
-  `docker-compose.yml`.
-
-### 1. Criar o arquivo de ambiente
-
-No PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Edite `.env` e substitua todos os valores `change-me`. Para o ambiente local
-atual, `MINIO_LOGIN` e `MINIO_PASSWORD` devem corresponder às credenciais
-`MINIO_ROOT_USER` e `MINIO_ROOT_PASSWORD`, salvo se um usuário adicional tiver
-sido criado no MinIO.
-
-A chave `LAKEKEEPER_ENCRYPTION_KEY` deve ter pelo menos 32 caracteres, ser
-aleatória e permanecer estável. Alterá-la depois que o Lakekeeper armazenar
-credenciais pode impedir a leitura desses segredos.
-
-### 2. Subir a stack completa
-
-```powershell
-docker compose up --build -d
-```
-
-O Compose executará automaticamente, nesta ordem:
-
-1. inicialização do MinIO e criação dos buckets;
-2. inicialização do PostgreSQL e migração do Lakekeeper;
-3. inicialização do Lakekeeper e criação do warehouse;
-4. inicialização do Prefect Server;
-5. criação dos deployments e inicialização do worker.
-
-Confira os containers:
-
-```powershell
-docker compose ps -a
-```
-
-Interfaces locais:
-
-| Serviço | Endereço padrão |
-|---|---|
-| Prefect | <http://localhost:4200> |
-| MinIO Console | <http://localhost:9001> |
-| Lakekeeper | <http://localhost:8181> |
-
-Para acompanhar a inicialização:
-
-```powershell
-docker compose logs -f prefect-worker lakekeeper minio
-```
-
-Interrompa a visualização dos logs com `Ctrl+C`; isso não encerra os serviços.
-
-### 3. Executar pelo Prefect
-
-Com a stack completa online, abra a interface do Prefect, selecione um dos
-deployments definidos em `prefect.yaml` e inicie uma execução informando os
-parâmetros necessários.
-
-Também é possível usar o CLI dentro do ambiente configurado:
-
-```powershell
-docker compose exec prefect-worker prefect deployment ls
-```
-
-### 4. Executar e depurar pelo Python local
-
-Instale as dependências:
-
-```powershell
-poetry install
-```
-
-Ao executar pelo host, os nomes Docker `minio` e `lakekeeper` não são
-resolvidos. Ajuste temporariamente estas variáveis no `.env`:
-
-```env
-MINIO_ENDPOINT=localhost:9000
-ICEBERG_CATALOG_ENDPOINT=http://localhost:8181/catalog
-```
-
-O worker não é afetado porque o `docker-compose.yml` sobrescreve esses endpoints
-dentro do container.
-
-Para registrar a execução local no Prefect Server que está no Compose, configure
-o endpoint no terminal atual:
-
-```powershell
-$env:PREFECT_API_URL = "http://localhost:4200/api"
-```
-
-Execute o ano corrente:
-
-```powershell
-poetry run python -m pipelines.camara_deputados.despesas.orquestrador
-poetry run python -m pipelines.camara_deputados.deputados.orquestrador
-```
-
-Para informar um ano específico:
-
-```powershell
-poetry run python -c "from pipelines.camara_deputados.despesas.orquestrador import executar_pipeline_despesas; executar_pipeline_despesas(year=2025)"
-
-poetry run python -c "from pipelines.camara_deputados.deputados.orquestrador import executar_pipeline_deputados; executar_pipeline_deputados(year=2025)"
-```
-
-### Depuração dentro do worker com Dev Containers
-
-Instale no VS Code a extensão **Dev Containers**, da Microsoft. O projeto possui
-uma configuração em `.devcontainer` que reutiliza o serviço `prefect-worker` do
-Compose e monta o workspace local em `/app`.
-
-1. Suba a stack com `docker compose up --build -d`;
-2. abra a paleta com `F1`;
-3. execute `Dev Containers: Reopen in Container`;
-4. confirme que a nova janela abriu a pasta `/app` no `prefect-worker`;
-5. coloque os breakpoints e selecione `Dev Container: executar flow`;
-6. pressione `F5` e informe o módulo Python do flow.
-
-Exemplos de módulos:
-
-```text
-pipelines.camara_deputados.deputados.orquestrador
-pipelines.camara_deputados.despesas.orquestrador
-```
-
-Não é necessário duplicar o `launch.json`: para outro flow, informe somente o
-novo módulo. O Python, as variáveis de ambiente e os nomes de rede usados na
-depuração são os mesmos do worker (`minio`, `lakekeeper` e `prefect-server`).
-
-O comando `Dev Containers: Attach to Running Container` também pode ser usado
-manualmente selecionando `prefect-worker` e abrindo `/app`, mas `Reopen in
-Container` é mais reproduzível porque aplica automaticamente as extensões e o
-bind mount definidos no repositório.
-
-### 5. Testar somente a infraestrutura Iceberg
-
-Para trabalhar na publicação Iceberg sem manter Prefect Server e Worker ativos:
-
-```powershell
-docker compose up -d minio lakekeeper-db lakekeeper createbuckets lakekeeper-bootstrap
-```
-
-Esse comando também executa as dependências de migração. Depois, execute o flow
-pelo Python local conforme a etapa anterior. Dependendo da configuração local do
-Prefect, ele pode usar um servidor efêmero; para registrar a execução no servidor
-do projeto, suba também `prefect-server` e configure `PREFECT_API_URL`. Se a
-variável tiver sido configurada anteriormente e o servidor estiver desligado,
-remova-a do terminal antes de usar o modo efêmero:
-
-```powershell
-Remove-Item Env:PREFECT_API_URL -ErrorAction SilentlyContinue
-```
-
-### 6. Encerrar o ambiente
-
-Para parar os containers preservando volumes e dados:
-
-```powershell
-docker compose stop
-```
-
-Para remover os containers e a rede, preservando os volumes nomeados:
-
-```powershell
-docker compose down
-```
-
-Não use `docker compose down -v` se quiser preservar o estado do Prefect e o
-banco interno do Lakekeeper. Os arquivos do MinIO permanecem no diretório
-`D:/Dados` enquanto esse diretório não for removido manualmente.
-
-## Variáveis principais
-
-| Variável | Uso |
-|---|---|
-| `PREFECT_PORT` | Porta da API e interface do Prefect |
-| `MINIO_ENDPOINT` | Endpoint S3 usado pelo código |
-| `MINIO_LOGIN` / `MINIO_PASSWORD` | Credenciais utilizadas pelas pipelines |
-| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | Administração e bootstrap do MinIO |
-| `ICEBERG_CATALOG_ENDPOINT` | Endpoint REST do Lakekeeper |
-| `ICEBERG_WAREHOUSE` | Warehouse registrado no catálogo |
-| `ICEBERG_CATALOG_NAME` | Nome usado pelo DuckDB ao anexar o catálogo |
-| `LAKEKEEPER_DB_PASSWORD` | Senha do PostgreSQL interno do Lakekeeper |
-| `LAKEKEEPER_ENCRYPTION_KEY` | Chave de criptografia persistente do catálogo |
-
-Consulte `.env.example` para a lista completa.
+O catálogo ClickHouse é configurado como leitura; consumidores SQL não recebem
+credenciais S3. Confirme a compatibilidade de autenticação e do catálogo na versão
+fixada antes de oferecer acesso fora do host local.
+
+## Dados e manutenção
+
+Volumes nomeados: `rustfs-data`, `nessie-data`, `clickhouse-data` e `prefect-data`.
+O warehouse Nessie é novo; os objetos e o catálogo legado permanecem preservados,
+mas não são importados automaticamente. Faça backup antes de operações de
+manutenção. `docker compose stop` preserva os dados; não remova volumes para
+reiniciar serviços.

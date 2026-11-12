@@ -1,175 +1,155 @@
+name: prefect-lakehouse
+
+x-app: &app
+  build: .
+  image: prefect-lakehouse-worker:local
+  environment: &app-env
+    S3_ENDPOINT: rustfs:9000
+    ICEBERG_CATALOG_ENDPOINT: http://nessie:19120/iceberg
+    PREFECT_API_URL: http://prefect-server:4200/api
+    DUCKDB_TEMP_DIRECTORY: /tmp/duckdb
+  volumes:
+    - ./.prefect/runtime:/runtime
+
 services:
-  prefect-server:
-    image: prefecthq/prefect:3-latest
-    container_name: prefect-server
-    entrypoint: >
-      sh -c "
-      apt-get update && apt-get install -y curl &&
-      prefect server start --host 0.0.0.0 --port ${PREFECT_PORT}
-      "
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.8
+    restart: unless-stopped
+    mem_limit: ${CLICKHOUSE_MEMORY:-576m}
     ports:
-      - "${PREFECT_PORT}:${PREFECT_PORT}"
+      - '127.0.0.1:${CLICKHOUSE_HTTP_PORT:-8123}:8123'
+      - '127.0.0.1:${CLICKHOUSE_NATIVE_PORT:-9002}:9000'
     environment:
-      PREFECT_UI_URL: "http://localhost:${PREFECT_PORT}/api"
-      PREFECT_API_URL: "http://localhost:${PREFECT_PORT}/api"
-      PREFECT_SERVER_API_HOST: "0.0.0.0"
+      CLICKHOUSE_USER: ${CLICKHOUSE_ADMIN_USER:-lakehouse_admin}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_ADMIN_PASSWORD:?Configure CLICKHOUSE_ADMIN_PASSWORD}
+      CLICKHOUSE_READONLY_PASSWORD: ${CLICKHOUSE_READONLY_PASSWORD:?Configure CLICKHOUSE_READONLY_PASSWORD}
+      CLICKHOUSE_S3_ACCESS_KEY: ${CLICKHOUSE_S3_ACCESS_KEY:?Configure CLICKHOUSE_S3_ACCESS_KEY}
+      CLICKHOUSE_S3_SECRET_KEY: ${CLICKHOUSE_S3_SECRET_KEY:?Configure CLICKHOUSE_S3_SECRET_KEY}
+      S3_ENDPOINT: http://rustfs:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./infra/clickhouse/config.d/s3.xml:/etc/clickhouse-server/config.d/s3.xml:ro
+      - ./infra/clickhouse/users.d/zz-analyst.xml:/etc/clickhouse-server/users.d/zz-analyst.xml:ro
+      - ./infra/clickhouse/initdb:/docker-entrypoint-initdb.d:ro
+    depends_on:
+      nessie:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'clickhouse-client --user analista --password "$${CLICKHOUSE_READONLY_PASSWORD}" --query "SELECT 1"']
+      interval: 10s
+      timeout: 15s
+      retries: 20
+      start_period: 60s
+
+  rustfs:
+    image: rustfs/rustfs:1.0.4
+    restart: unless-stopped
+    mem_limit: ${RUSTFS_MEMORY:-192m}
+    ports:
+      - '127.0.0.1:${RUSTFS_PORT:-9000}:9000'
+      - '127.0.0.1:${RUSTFS_CONSOLE_PORT:-9001}:9001'
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?Configure RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?Configure RUSTFS_SECRET_KEY}
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ':9000'
+      RUSTFS_CONSOLE_ENABLE: 'true'
+      RUSTFS_CONSOLE_ADDRESS: ':9001'
+    volumes:
+      - rustfs-data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:9000/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  nessie:
+    image: ghcr.io/projectnessie/nessie:0.107.1
+    restart: unless-stopped
+    mem_limit: ${NESSIE_MEMORY:-384m}
+    ports:
+      - '127.0.0.1:${NESSIE_PORT:-19120}:19120'
+    environment:
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+    volumes:
+      - nessie-data:/nessie/data
+      - ./infra/nessie/application.properties:/deployments/config/application.properties:ro
+    depends_on:
+      nessie-data-init:
+        condition: service_completed_successfully
+      rustfs:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:19120/api/v2/config']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  nessie-data-init:
+    image: ghcr.io/projectnessie/nessie:0.107.1
+    user: '0:0'
+    restart: 'no'
+    entrypoint: ['/bin/sh', '-ec']
+    command: ['mkdir -p /nessie/data && chown -R 10000:10001 /nessie/data']
+    volumes:
+      - nessie-data:/nessie/data
+
+  prefect-server:
+    <<: *app
+    profiles: [processing]
+    environment:
+      <<: *app-env
+      PREFECT_UI_API_URL: http://localhost:${PREFECT_PORT:-4200}/api
+    mem_limit: ${PREFECT_SERVER_MEMORY:-160m}
+    ports:
+      - '127.0.0.1:${PREFECT_PORT:-4200}:4200'
+    command: ['prefect', 'server', 'start', '--host', '0.0.0.0', '--port', '4200']
     volumes:
       - prefect-data:/root/.prefect
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${PREFECT_PORT}/api/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - prefect-net
+      test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4200/api/health', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 30
 
   prefect-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: prefect-worker
+    <<: *app
+    profiles: [processing]
+    environment:
+      <<: *app-env
+      AMBIENTE: ${AMBIENTE:-local}
+      PIPELINE_STORAGE_FORMAT: ${PIPELINE_STORAGE_FORMAT:-iceberg}
+      S3_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?Configure RUSTFS_ACCESS_KEY}
+      S3_SECRET_KEY: ${RUSTFS_SECRET_KEY:?Configure RUSTFS_SECRET_KEY}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_USE_SSL: ${S3_USE_SSL:-false}
+      S3_URL_STYLE: ${S3_URL_STYLE:-path}
+      ICEBERG_WAREHOUSE: ${ICEBERG_WAREHOUSE:-warehouse}
+      ICEBERG_CATALOG_NAME: ${ICEBERG_CATALOG_NAME:-lakehouse}
+      DUCKDB_MEMORY_LIMIT: ${DUCKDB_MEMORY_LIMIT:-128MB}
+    mem_limit: ${PREFECT_WORKER_MEMORY:-384m}
+    command:
+      - sh
+      - -ec
+      - |
+        prefect work-pool create local --type process --overwrite
+        prefect work-pool set-concurrency-limit local 1
+        prefect deploy --all
+        exec prefect worker start --pool local --limit 1
     depends_on:
       prefect-server:
         condition: service_healthy
-      lakekeeper-bootstrap:
-        condition: service_completed_successfully
-    environment:
-      PREFECT_API_URL: "http://prefect-server:${PREFECT_PORT}/api"
-      MINIO_ENDPOINT: "minio:${PORT_API}"
-      MINIO_LOGIN: ${MINIO_LOGIN}
-      MINIO_PASSWORD: ${MINIO_PASSWORD}
-      ICEBERG_CATALOG_ENDPOINT: "http://lakekeeper:8181/catalog"
-      ICEBERG_WAREHOUSE: ${ICEBERG_WAREHOUSE:-prefect}
-      ICEBERG_CATALOG_NAME: ${ICEBERG_CATALOG_NAME:-lakehouse}
-    entrypoint: >
-      sh -c "
-      prefect work-pool create local --type process --overwrite &&
-      prefect work-pool set-concurrency-limit local 20 &&
-      prefect deploy --all &&
-      prefect worker start --pool local
-      "
-    restart: unless-stopped
-    networks:
-      - prefect-net
-
-  minio:
-    image: minio/minio:latest
-    container_name: minio
-    ports:
-      - "${PORT_API}:${PORT_API}"
-      - "${PORT_FRONT}:${PORT_FRONT}"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    command: server /data --console-address ":${PORT_FRONT}"
-    volumes:
-      - D:/Dados:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${PORT_API}/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - prefect-net
-
-  createbuckets:
-    image: minio/mc:latest
-    container_name: minio-createbuckets
-    depends_on:
-      minio:
+      nessie:
         condition: service_healthy
-    entrypoint: >
-      sh -c "
-      mc alias set local http://minio:${PORT_API} ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
-      mc mb --ignore-existing local/bronze &&
-      mc mb --ignore-existing local/prata &&
-      mc mb --ignore-existing local/ouro &&
-      mc mb --ignore-existing local/iceberg
-      "
-    networks:
-      - prefect-net
 
-  lakekeeper-db:
-    image: postgres:16.9-alpine
-    environment:
-      POSTGRES_DB: lakekeeper
-      POSTGRES_USER: lakekeeper
-      POSTGRES_PASSWORD: ${LAKEKEEPER_DB_PASSWORD}
-    volumes:
-      - lakekeeper-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lakekeeper -d lakekeeper"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - prefect-net
-
-  lakekeeper-migrate:
-    image: quay.io/lakekeeper/catalog:v0.12.1
-    command: ["migrate"]
-    environment:
-      LAKEKEEPER__PG_ENCRYPTION_KEY: ${LAKEKEEPER_ENCRYPTION_KEY}
-      LAKEKEEPER__PG_DATABASE_URL_READ: postgresql://lakekeeper:${LAKEKEEPER_DB_PASSWORD}@lakekeeper-db:5432/lakekeeper
-      LAKEKEEPER__PG_DATABASE_URL_WRITE: postgresql://lakekeeper:${LAKEKEEPER_DB_PASSWORD}@lakekeeper-db:5432/lakekeeper
-    depends_on:
-      lakekeeper-db:
-        condition: service_healthy
-    networks:
-      - prefect-net
-
-  lakekeeper:
-    image: quay.io/lakekeeper/catalog:v0.12.1
-    command: ["serve"]
-    ports:
-      - "${LAKEKEEPER_PORT:-8181}:8181"
-    environment:
-      LAKEKEEPER__PG_ENCRYPTION_KEY: ${LAKEKEEPER_ENCRYPTION_KEY}
-      LAKEKEEPER__PG_DATABASE_URL_READ: postgresql://lakekeeper:${LAKEKEEPER_DB_PASSWORD}@lakekeeper-db:5432/lakekeeper
-      LAKEKEEPER__PG_DATABASE_URL_WRITE: postgresql://lakekeeper:${LAKEKEEPER_DB_PASSWORD}@lakekeeper-db:5432/lakekeeper
-    depends_on:
-      lakekeeper-migrate:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "/home/nonroot/lakekeeper", "healthcheck"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - prefect-net
-
-  lakekeeper-bootstrap:
-    image: curlimages/curl:8.12.1
-    environment:
-      ICEBERG_WAREHOUSE: ${ICEBERG_WAREHOUSE:-prefect}
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      PORT_API: ${PORT_API}
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        set -eu
-        bootstrap_status=$$(curl -sS -o /dev/null -w '%{http_code}' \
-          -X POST http://lakekeeper:8181/management/v1/bootstrap \
-          -H 'Content-Type: application/json' \
-          --data '{"accept-terms-of-use":true}')
-        case "$$bootstrap_status" in 2*|409) ;; *) exit 1 ;; esac
-        warehouse_status=$$(curl -sS -o /dev/null -w '%{http_code}' \
-          -X POST http://lakekeeper:8181/management/v1/warehouse \
-          -H 'Content-Type: application/json' \
-          --data "{\"warehouse-name\":\"$${ICEBERG_WAREHOUSE}\",\"project-id\":\"00000000-0000-0000-0000-000000000000\",\"storage-profile\":{\"type\":\"s3\",\"bucket\":\"iceberg\",\"key-prefix\":\"warehouse\",\"endpoint\":\"http://minio:$${PORT_API}\",\"region\":\"us-east-1\",\"path-style-access\":true,\"flavor\":\"minio\",\"sts-enabled\":false},\"storage-credential\":{\"type\":\"s3\",\"credential-type\":\"access-key\",\"aws-access-key-id\":\"$${MINIO_ROOT_USER}\",\"aws-secret-access-key\":\"$${MINIO_ROOT_PASSWORD}\"}}")
-        case "$$warehouse_status" in 2*|409) ;; *) exit 1 ;; esac
-    depends_on:
-      lakekeeper:
-        condition: service_healthy
-      createbuckets:
-        condition: service_completed_successfully
-    networks:
-      - prefect-net
 volumes:
+  rustfs-data:
+  nessie-data:
+  clickhouse-data:
   prefect-data:
-  lakekeeper-db-data:
-
-networks:
-  prefect-net:
-    driver: bridge
