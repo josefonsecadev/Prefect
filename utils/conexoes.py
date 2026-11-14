@@ -43,6 +43,8 @@ class Conexoes(Config):
         Path(self.duckdb_temp_directory).mkdir(parents=True, exist_ok=True)
         con.execute("SET temp_directory = ?", [self.duckdb_temp_directory])
         con.execute("SET preserve_insertion_order = false")
+        con.execute("SET http_timeout = 120000")  # 120s em ms
+        con.execute("SET http_retries = 5")        # 5 tentativas
         extensions = ("httpfs", "iceberg") if self.storage_format == "iceberg" else ("httpfs",)
         for extension in extensions:
             con.execute(f"INSTALL {extension}")
