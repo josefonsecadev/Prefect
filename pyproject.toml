@@ -5,7 +5,7 @@ description = "Ambiente prefect para desenvolvimento de pipelines"
 authors = [
     {name = "jose_fonseca", email = "jose.fonseca.dev@gmail.com"}
 ]
-requires-python = "=3.14.6"
+requires-python = ">=3.14.6,<3.15"
 dependencies = [
     "prefect (>=3.7.7,<4.0.0)",
     "typing-extensions (>=4.16.0,<5.0.0)",
