@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from io import BytesIO
+import zipfile
 
 import requests
 from prefect import flow, task
+from prefect.cache_policies import NO_CACHE
 
 from utils.camara import Camara
 from utils.pipeline import Pipeline
@@ -46,7 +48,7 @@ class PipeBronze(Pipeline):
         
         self.log.info("[BRONZE] FNALIZANDO COLETA DAS DESPESAS")
 
-    @task
+    @task(cache_policy=NO_CACHE)
     def _download_expenses_file(self, year: int):
         """
         Faz a extração do ZIP contendo as despesas dos deputados no ano passado.
@@ -56,10 +58,16 @@ class PipeBronze(Pipeline):
         """
         camara = Camara()
         request = requests.get(camara.url_despesas_ano.format(ano=year), timeout=240)
-
-        if request.status_code == 200:
-            self._salva_arquivos(
-                arquivo=BytesIO(request.content),
-                nome_arquivo=f"despesas_{year}.csv.zip",
-                subpath=str(year),
-            )
+        request.raise_for_status()
+        arquivo = BytesIO(request.content)
+        if not zipfile.is_zipfile(arquivo):
+            raise ValueError(f"Resposta de despesas de {year} não contém ZIP válido")
+        with zipfile.ZipFile(arquivo) as pacote:
+            if f"Ano-{year}.csv" not in pacote.namelist():
+                raise ValueError(f"ZIP de despesas não contém Ano-{year}.csv")
+        arquivo.seek(0)
+        self._salva_arquivos(
+            arquivo=arquivo,
+            nome_arquivo=f"despesas_{year}.csv.zip",
+            subpath=str(year),
+        )

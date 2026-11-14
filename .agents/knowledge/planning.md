@@ -1,4 +1,14 @@
 # A Arquitetura
+Decisão de operação (2026-11-05, TASK-0024): provisionamento de buckets, catálogo e
+permissões é uma ação explícita de instalação. Subir serviços não deve executar o
+provisionador da aplicação. Configurações de infraestrutura ficam em infra; segredos
+locais são fixos em .env ignorado.
+
+Decisão de arquitetura (2026-11-05, TASK-0025): manter RustFS, Iceberg, DuckDB e
+Prefect; substituir Polaris/PostgreSQL por Project Nessie como catálogo Iceberg REST
+e Trino por ClickHouse como endpoint SQL. A validação da integração Nessie/S3 e do
+catálogo Iceberg no ClickHouse é critério de aceite desta task.
+
 Fonte de verdade para planejar a arquitetura do projeto e definir os contratos que serão entregues para execução.
 
 ## O que é o projeto
@@ -14,14 +24,70 @@ O planejamento é responsável por decidir como cada demanda se integra a essa p
 | Prefect Server | API, interface web, agendamentos e estado das execuções |
 | Prefect Worker | Execução dos flows e tasks |
 | DuckDB | Leitura, transformação e publicação dos dados |
-| MinIO | Armazenamento dos arquivos brutos e das tabelas Iceberg |
+| RustFS | Armazenamento S3 dos arquivos brutos e das tabelas Iceberg |
 | Apache Iceberg | Formato de tabela, schema, partições, snapshots e transações |
-| Lakekeeper | Catálogo REST das tabelas Iceberg |
-| PostgreSQL | Persistência interna do Lakekeeper |
+| Project Nessie | Catálogo REST Iceberg com persistência local RocksDB |
+| ClickHouse | Endpoint SQL para consultar tabelas Iceberg |
 
-PostgreSQL é uma dependência interna do Lakekeeper e não deve receber regras de negócio dos pipelines.
+O catálogo Nessie não recebe regras de negócio dos pipelines. ClickHouse lê Iceberg
+diretamente por `icebergS3()` quando recebe o path da tabela. No perfil atual, a
+função exige um usuário SQL administrativo porque o usuário `analista` usa
+`readonly=1`; a chave S3 do serviço ClickHouse, por sua vez, é somente leitura e
+limitada ao warehouse. A função direta não descobre tabelas via Nessie. A integração
+de consumo por nome segue bloqueada; consulte TASK-0025 antes de considerar o acesso
+SQL para analistas pronto.
+
+Decisão de credenciais (TASK-0025): por solicitação do usuário, Prefect/DuckDB usam
+as credenciais administrativas do RustFS para leitura e escrita dos flows. ClickHouse
+recebe identidade IAM separada, somente leitura e limitada ao prefixo `iceberg/nessie-warehouse/`.
+Segredos ficam no `.env`; a política IAM é versionada sem credenciais.
 
 ## Arquitetura de dados
+
+### Validação incremental aprovada em 2026-11-04: Parquet direto no RustFS
+
+Por solicitação do usuário, TASK-0019 entrega execução dos flows de dados sem
+catálogo/Trino nesta fase. Modo explícito `PIPELINE_STORAGE_FORMAT=parquet` publica
+Prata/Ouro tipadas como arquivos Parquet no RustFS, mantendo o modo `iceberg`
+existente como default. Bronze mantém o formato recebido/contrato já implementado.
+Leituras entre flows usam esses arquivos no mesmo modo. Caminho:
+`<camada>/<projeto>/<pipeline>/<tabela>/<coluna>=<recorte>/data.parquet`, sem recorte
+quando tabela integral. Escrita serial e substituição de uma chave por recorte,
+sem remoção antecipada; validar Parquet/schema/contagem e readback remoto.
+Não há garantia transacional multiobjeto, catálogo ou snapshots neste modo.
+Legislaturas e deputados: Bronze/Prata; despesas: Bronze/Prata/Ouro. Manutenção
+Iceberg permanece fora desta validação. Esta entrega não conclui aceites Iceberg,
+permissões SQL ou Trino e não substitui a arquitetura alvo abaixo.
+
+### Decisão histórica, substituída pela TASK-0025: RustFS, Polaris e Trino
+
+Em 2026-11-03, o usuário escolheu RustFS como armazenamento, Apache Polaris como
+catálogo e Trino como engine SQL de acesso à Ouro. Essa decisão foi substituída em
+2026-11-05 pelo uso de Nessie e ClickHouse. O ambiente será provisionado
+do zero quanto a dados, catálogos, registros de tabelas, usuários e volumes novos.
+Não há requisito de copiar ou preservar dados e catálogos anteriores na solução.
+Essa dispensa não exige apagar volumes antigos para executar o planejamento.
+
+- Planejamento e execução rastreados em TASK-0003 a TASK-0009, em `.agents/tasks/`.
+- Preservar Prefect, DuckDB, Iceberg e regras de negócio dos pipelines existentes.
+  Remover MinIO Server, Lakekeeper e seus bootstraps do caminho padrão; não construir
+  reconciliação, importação ou compatibilidade de catálogo antigo.
+- Manter a topologia local de uma máquina em Docker; não introduzir cluster ou
+  promessas de alta disponibilidade que essa topologia não oferece.
+- RustFS e Polaris terão persistência própria e vazia. Não montar diretório interno
+  MinIO no RustFS nem reaproveitar banco Lakekeeper como backend Polaris.
+- Usar configuração S3 explícita (endpoint, credenciais, região, TLS e path-style),
+  padrão apontando para RustFS; variáveis antigas MINIO_* não são contrato obrigatório.
+- DuckDB escreve Prata/Ouro pelo REST Polaris; Trino consulta as tabelas pelo mesmo
+  catálogo e lê os objetos no RustFS. Consumidores recebem identidade SQL sem
+  credenciais S3 e só acessam Ouro. Separar escritor, leitor e bootstrap administrativo.
+- Provisionamento explícito cria buckets, catálogo, namespaces, identidades e
+  permissões na instalação; é idempotente e não participa do startup diário.
+- TASK-0003 fixa versões, autenticação e contratos; TASK-0004 adapta código;
+  TASK-0005 provisiona a base; TASK-0006 valida flows; TASK-0007 registra decisão;
+  TASK-0008 entrega Trino; TASK-0009 define produto Ouro e valida consumo completo.
+- Só concluir com execução real de flows completos, reprocessamento sem duplicação,
+  persistência após reinicialização e consultas/permissões SQL comprovadas.
 
 O projeto segue a arquitetura medalhão:
 
@@ -29,7 +95,7 @@ O projeto segue a arquitetura medalhão:
 Fonte de dados
     |
     v
-Bronze no MinIO
+Bronze no RustFS
     |  arquivos JSON, CSV e ZIP recebidos das fontes
     v
 Prata no Iceberg
@@ -37,6 +103,9 @@ Prata no Iceberg
     v
 Ouro no Iceberg
        tabelas agregadas destinadas a APIs, dashboards e usuários finais
+    |
+    v
+ClickHouse (SQL sobre Iceberg; integração em validação na TASK-0025)
 ```
 
 ## Organização do código
@@ -91,6 +160,11 @@ Uma decisão arquitetural não pode ser transferida implicitamente ao desenvolvi
 
 ### Ouro
 
+- Primeiro produto planejado: `ouro_camara_deputados.despesas_mensais`, granularidade
+  deputado (`ideCadastro`), ano e mês; soma decimal de `vlrLiquido`, incluindo
+  negativos, sem novo desconto de glosa; contagem de lançamentos. Reprocessar
+  somente o ano solicitado. Contrato detalhado e aceite na TASK-0009.
+
 - Existe apenas quando há uma necessidade de consumo definida.
 - Mantém métricas e regras de negócio explícitas e testáveis.
 - Consome preferencialmente a Prata e não acessa diretamente a fonte ou a Bronze sem justificativa arquitetural.
@@ -135,7 +209,7 @@ Uma decisão arquitetural não pode ser transferida implicitamente ao desenvolvi
 
 - Python é a linguagem principal para coleta e transformação.
 - `requests` é usado para APIs, DuckDB para leitura e transformação e Selenium para fontes web que realmente dependam de navegador.
-- MinIO armazena objetos do datalake.
+- RustFS armazena objetos do datalake; Nessie mantém o catálogo REST Iceberg e ClickHouse oferece acesso SQL à Ouro.
 - Apache Iceberg fornece catálogo lógico de tabelas, schemas, snapshots, particionamento e transações.
 - Prefect define flows, tasks, deployments, estados e agendamentos.
 - Todos os serviços de produção devem ser dockerizados.

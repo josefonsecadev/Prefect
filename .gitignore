@@ -127,3 +127,6 @@ logs/
 # ==============================
 *.tar.gz
 *.whl
+
+# Cópia de segurança do projeto (não versionar)
+Prefect/

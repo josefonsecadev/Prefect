@@ -41,12 +41,7 @@ deployments:
     work_pool:
       name: local
     schedule: null
-    parameters:
-      camada: null
-      projeto: null
-      tabela: null
-      novas_particoes: []
-      motivo: null
+    parameters: {}
     tags:
       - manutencao
       - iceberg

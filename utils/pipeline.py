@@ -2,7 +2,9 @@ from datetime import datetime, timezone
 from io import BytesIO, SEEK_END
 from typing import BinaryIO, Optional, Union
 import duckdb
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
+from pathlib import Path
+import re
 import os
 from utils.conexoes import Conexoes
 from prefect import get_run_logger
@@ -79,14 +81,14 @@ class Pipeline(Conexoes):
       subpath (Optional[str], optional): Subpath para limpar a pasta. Defaults to None.
     """
 
-    with self._minio() as minio_client:
-      objects_to_delete = minio_client.list_objects(
+    with self._s3() as s3_client:
+      objects_to_delete = s3_client.list_objects(
           bucket_name=self.camada,
           prefix=path,
           recursive=True
       )
       for obj in objects_to_delete:
-        minio_client.remove_object(
+        s3_client.remove_object(
           self.camada,
           obj.object_name
         )
@@ -106,7 +108,7 @@ class Pipeline(Conexoes):
       subpath (Optional[str], optional): Subpath para salvar o arquivo. Defaults to None.
     """
 
-    with self._minio() as minio_client:
+    with self._s3() as s3_client:
 
       path = f"{self._set_path(subpath)}/{nome_arquivo}"
      
@@ -114,14 +116,14 @@ class Pipeline(Conexoes):
       
       try:
          tamanho = self.tamanho_arquivo(arquivo)
-         minio_client.put_object(
+         s3_client.put_object(
             bucket_name=self.camada,
             object_name=path,
             data=arquivo,
             length=tamanho
         )
       except TypeError:
-         minio_client.put_object(
+         s3_client.put_object(
             bucket_name=self.camada,
             object_name=path,
             data=arquivo,
@@ -149,9 +151,9 @@ class Pipeline(Conexoes):
      """
     prefix = self._set_path(subpath)
     camada_origem = camada or self.camada
-    with self._minio() as minio_client:
+    with self._s3() as s3_client:
       objetos = [
-          objeto for objeto in minio_client.list_objects(
+          objeto for objeto in s3_client.list_objects(
               bucket_name=camada_origem,
               prefix=prefix,
               recursive=True
@@ -233,9 +235,9 @@ class Pipeline(Conexoes):
         subpath (Optional[str], optional): Subpath de leitura
       """
 
-      with self._minio() as minio_client:
+      with self._s3() as s3_client:
         prefix = self._set_path(subpath)
-        objetos = list(minio_client.list_objects(
+        objetos = list(s3_client.list_objects(
             bucket_name=self.camada,
             prefix=prefix,
             recursive=True
@@ -247,7 +249,7 @@ class Pipeline(Conexoes):
         if not objetos:
             raise FileNotFoundError(f"Nenhum arquivo encontrado no path '{prefix}'")
 
-        with minio_client.get_object(
+        with s3_client.get_object(
             bucket_name=self.camada,
             object_name=objetos[0].object_name
         ) as resposta:
@@ -352,6 +354,11 @@ class Pipeline(Conexoes):
     if replace_by and replace_all:
       raise ValueError("replace_by e replace_all não podem ser usados juntos")
 
+    if self.storage_format == "parquet":
+      return self._save_parquet(
+          tabela_origem, tabela_destino, schema, partition, replace_by, replace_all
+      )
+
     self._apply_schema(tabela_origem, schema)
     catalog_name = self._attach_iceberg_catalog()
 
@@ -417,6 +424,73 @@ class Pipeline(Conexoes):
     colunas_snapshot = [descricao[0] for descricao in snapshot.description]
     valores_snapshot = snapshot.fetchone()
     return dict(zip(colunas_snapshot, valores_snapshot)) if valores_snapshot else {}
+
+
+  def _parquet_prefix(self, tabela: str) -> str:
+    for name in (self.project_name, self.pipeline_name, tabela):
+      self._sql_identifier(name)
+    return f"{self.project_name}/{self.pipeline_name}/{tabela}/"
+
+
+  def _table_source(self, tabela: str, camada: Optional[str] = None) -> str:
+    """Expressão SQL de leitura de uma tabela no formato explicitamente escolhido."""
+    if self.storage_format == "iceberg":
+      return self._iceberg_table_identifier(tabela, camada)
+    path = f"s3://{camada or self.camada}/{self._parquet_prefix(tabela)}**/*.parquet"
+    return f"read_parquet({self._sql_literal(path)}, hive_partitioning=false)"
+
+
+  def _save_parquet(self, tabela_origem: str, tabela_destino: str,
+                    schema: dict[str, str], partition: Optional[list[str]],
+                    replace_by: Optional[dict[str, object]], replace_all: bool) -> dict:
+    """Substitui uma chave por recorte sem remover o objeto anterior antecipadamente."""
+    partition = partition or []
+    if replace_all and partition:
+      raise ValueError("Parquet integral não aceita particionamento")
+    if set(partition) != set(replace_by or {}):
+      raise ValueError("Parquet exige recorte explícito para todas as colunas de partição")
+    if not replace_by and not replace_all:
+      raise ValueError("Parquet exige replace_by ou replace_all; append não é suportado")
+    self._apply_schema(tabela_origem, schema)
+    origem = self._sql_identifier(tabela_origem)
+    key = self._parquet_prefix(tabela_destino)
+    for column in partition:
+      if column not in schema:
+        raise ValueError(f"Coluna de partição ausente do schema: {column}")
+      value = replace_by[column]
+      if not re.fullmatch(r"[A-Za-z0-9_-]+", str(value)):
+        raise ValueError(f"Recorte inválido para {column}")
+      outside = self.duckdb_conn.execute(
+          f"SELECT COUNT(*) FROM {origem} WHERE {self._sql_identifier(column)} IS DISTINCT FROM ?",
+          [value],
+      ).fetchone()[0]
+      if outside:
+        raise ValueError(f"Tabela contém {outside} registros fora do recorte de {column}")
+      key += f"{column}={value}/"
+    key += "data.parquet"
+    rows = self.duckdb_conn.execute(f"SELECT COUNT(*) FROM {origem}").fetchone()[0]
+    expected_schema = self.duckdb_conn.execute(f"DESCRIBE {origem}").fetchall()
+
+    def validate(path: str) -> None:
+      source = f"read_parquet({self._sql_literal(path)}, hive_partitioning=false)"
+      actual_schema = self.duckdb_conn.execute(f"DESCRIBE SELECT * FROM {source}").fetchall()
+      actual_rows = self.duckdb_conn.execute(f"SELECT COUNT(*) FROM {source}").fetchone()[0]
+      if [(c[0], c[1]) for c in actual_schema] != [(c[0], c[1]) for c in expected_schema] or actual_rows != rows:
+        raise ValueError(f"Validação Parquet falhou para {tabela_destino}")
+
+    with TemporaryDirectory() as directory:
+      local = str(Path(directory) / "data.parquet")
+      self.duckdb_conn.execute(
+          f"COPY {origem} TO {self._sql_literal(local)} (FORMAT PARQUET, COMPRESSION ZSTD)"
+      )
+      validate(local)
+      with self._s3() as client:
+        client.fput_object(self.camada, key, local, content_type="application/vnd.apache.parquet")
+    remote = f"s3://{self.camada}/{key}"
+    validate(remote)
+    result = {"format": "parquet", "path": remote, "rows": rows}
+    self.log.info("Parquet publicado e relido: %s", result)
+    return result
 
 
   def _iceberg_namespace(self, camada: Optional[str] = None) -> str:
@@ -604,6 +678,14 @@ class Pipeline(Conexoes):
                     snapshot_id: Optional[int] = None
                     ) -> duckdb.DuckDBPyConnection:
     """Materializa o estado atual ou um snapshot histórico em tabela DuckDB."""
+
+    if self.storage_format == "parquet":
+      if snapshot_id is not None:
+        raise ValueError("Parquet direto não oferece snapshots")
+      destino = self._sql_identifier(tabela_destino)
+      source = self._table_source(tabela_origem, camada_origem)
+      self.duckdb_conn.execute(f"CREATE OR REPLACE TABLE {destino} AS SELECT * FROM {source}")
+      return self.duckdb_conn
 
     catalog_name = self._attach_iceberg_catalog()
     origem = ".".join((

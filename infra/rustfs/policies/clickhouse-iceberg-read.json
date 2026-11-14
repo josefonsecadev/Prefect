@@ -1,0 +1,28 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadIcebergWarehouseLocation",
+      "Effect": "Allow",
+      "Action": ["s3:GetBucketLocation"],
+      "Resource": ["arn:aws:s3:::iceberg"]
+    },
+    {
+      "Sid": "ListOnlyNessieWarehouse",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": ["arn:aws:s3:::iceberg"],
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": ["nessie-warehouse", "nessie-warehouse/*"]
+        }
+      }
+    },
+    {
+      "Sid": "ReadOnlyNessieWarehouseObjects",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": ["arn:aws:s3:::iceberg/nessie-warehouse/*"]
+    }
+  ]
+}

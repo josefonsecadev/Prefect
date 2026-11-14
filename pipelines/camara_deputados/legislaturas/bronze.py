@@ -7,6 +7,9 @@ from tempfile import TemporaryDirectory
 
 import requests
 from prefect import flow, task
+from prefect.cache_policies import NO_CACHE
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from utils.camara import Camara
 from utils.pipeline import Pipeline
@@ -37,13 +40,19 @@ class PipeBronze(Pipeline):
         )
         return quantidade
 
-    @task(name="coletar_legislaturas")
+    @task(name="coletar_legislaturas", cache_policy=NO_CACHE)
     def _coletar_legislaturas(self) -> int:
-        resposta = requests.get(
-            Camara().legislaturas,
-            params={"pagina": 1, "itens": 100},
-            timeout=(5, 30),
-        )
+        with requests.Session() as session:
+            session.mount("https://", HTTPAdapter(max_retries=Retry(
+                total=3, backoff_factor=1, status_forcelist=[429, 502, 503, 504],
+                allowed_methods={"GET"},
+            )))
+            resposta = session.get(
+                Camara().legislaturas,
+                params={"pagina": 1, "itens": 100},
+                headers={"Accept": "application/json"},
+                timeout=(5, 30),
+            )
         resposta.raise_for_status()
 
         content_type = resposta.headers.get("content-type", "").lower()
